@@ -65,9 +65,9 @@ public class PetBridge : IDisposable
     readonly WebView2 webView;
     readonly PetModelMetadata metadata;
     readonly CancellationTokenSource cancellationTokenSource;
-    long lastExpressionTime;
-    long lastBubbleTime;
-    Lock locker = new Lock();
+    long? lastExpressionTime;
+    long? lastBubbleTime;
+    readonly Lock locker = new Lock();
 
     void SendCommand(object command)
     {
@@ -85,7 +85,7 @@ public class PetBridge : IDisposable
 
             if (root.TryGetProperty("type", out JsonElement typeProp) == false) return;
             string? type = typeProp.GetString();
-            
+
             switch (type)
             {
                 case "ready":
@@ -130,10 +130,16 @@ public class PetBridge : IDisposable
 
                 lock (locker)
                 {
-                    if (DateTimeOffset.Now.ToUnixTimeMilliseconds() - lastExpressionTime > 3000)
+                    if (lastExpressionTime != null && DateTimeOffset.Now.ToUnixTimeMilliseconds() - lastExpressionTime > 3000)
+                    {
                         PlayExpression(metadata.Expressions.First());
-                    if (DateTimeOffset.Now.ToUnixTimeMilliseconds() - lastBubbleTime > 6000)
+                        lastExpressionTime = null;
+                    }
+                    if (lastBubbleTime != null && DateTimeOffset.Now.ToUnixTimeMilliseconds() - lastBubbleTime > 6000)
+                    {
                         HideBubble();
+                        lastBubbleTime = null;
+                    }
                 }
             }
         }

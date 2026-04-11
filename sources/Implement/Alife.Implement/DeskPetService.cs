@@ -118,9 +118,10 @@ public class DeskPetService : Plugin, IAsyncDisposable
                                                              3. **动作控制**：`<pmtn>类型</pmtn>`
                                                                 - 支持：{string.Join(", ", client.SupportedMotions.Keys)}
                                                              4. **生理反应 (Poke)**：
-                                                                - 当你收到 `[DeskPetService] (物理干扰/连击干扰/交互: xxx) 台词` 格式的消息时，表示真央（桌宠）已经根据当前的物理刺激（点击、摇晃、连击）做出了“条件反射”式的本能反应（动作和基础台词）。
-                                                                - 你作为真央的灵魂，应在此基础上进行情感化的后续回应，不要简单重复桌宠已经说过的本能反馈。
-                                                             5. **获取位置**：`<pos />` (获取桌宠当前在屏幕上的坐标)
+                                                                - 当你收到 `[DeskPetService] (交互: xxx) 台词` 格式的消息时，表示桌宠已对物理刺激做出本能反应。
+                                                                - 常见的交互键值：`head` (摸头), `body` (戳身体), `rotate` (大幅旋转), `window_shake` (快速摇晃窗口), `window_move` (长程移动窗口), `mouse_shake` (鼠标绕圈), `mouse_combo` (快速连击)。
+                                                                - 你作为桌宠的灵魂，应基于此情境进行情感化后续回应，避免机械重复。
+                                                             5. **获取位置**：`<pos />` (获取桌宠当前坐标)
                                                              """);
         return Task.CompletedTask;
     }
@@ -130,14 +131,13 @@ public class DeskPetService : Plugin, IAsyncDisposable
         chatBot = chatActivity.ChatBot;
 
         client.OnInput += text => chatBot.Chat("[DeskPetService] " + text);
-        client.OnPoke += text => chatBot.Poke("[DeskPetService] " + text);
+        client.OnInteracted += text => chatBot.Poke("[DeskPetService] (交互: " + text + ")");
 
         chatActivity.ChatBot.ChatSent += _ => client.ResetInteractions();
 
         try
         {
-            client.Start();
-            Console.WriteLine("[DeskPetService] Pet process started successfully via Client.");
+            Console.WriteLine("[DeskPetService] Pet server initialized successfully.");
         }
         catch (Exception ex)
         {

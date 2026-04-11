@@ -114,7 +114,6 @@ public class MotionDetector
     const double ShakePathThreshold = 600;
     const int ShakeDirectionChanges = 4;
     const double MovePathThreshold = 1200;
-    const int MoveMinDirectionChanges = 2;
     const int ResetTimeWindow = 400;
 
     const double MouseSensitiveRadius = 5000;

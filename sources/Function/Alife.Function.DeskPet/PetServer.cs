@@ -15,6 +15,9 @@ public class PetServer : IAsyncDisposable
     public event Action<string>? OnInteracted;
     public PetModelMetadata Metadata { get; }
 
+    public IEnumerable<string> SupportedExpressions => Metadata.Expressions;
+    public IDictionary<string, (string Group, int Index)> SupportedMotions => Metadata.Motions;
+
     public PetServer()
     {
         //加载模型信息

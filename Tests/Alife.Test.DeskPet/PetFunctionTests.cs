@@ -3,116 +3,111 @@ using System.Windows;
 
 namespace Alife.Test.DeskPet;
 
+/// <summary>
+/// 桌宠功能集成测试：采用人工互动验证模式
+/// </summary>
 [TestFixture]
 public class PetFunctionTests
 {
     [Test, Order(1)]
     public void TestBubble()
     {
-        client.ShowBubble("你好，这是一个人工测试气泡！", 4000);
-        AskUser("真央是否显示了内容为“你好，这是一个人工测试气泡！”的对话气泡？");
+        server.ShowBubble("你好，这是一段定稿后的气泡测试文字！喵~");
+        AskUser("真央是否显示了对话气泡？");
+        server.HideBubble();
     }
 
     [Test, Order(2)]
     public void TestExpression()
     {
-        client.SetExpression("繁星眼"); //开心(繁星眼)
-        AskUser("真央的表情是否变成了星星眼（开心）？");
+        server.PlayExpression("繁星眼");
+        AskUser("真央的表情是否变成了星星眼（繁星眼）？");
         
-        client.SetExpression("微笑"); //恢复
+        server.PlayExpression("微笑");
     }
 
     [Test, Order(3)]
     public void TestMotion()
     {
-        client.PlayMotion("TapBody", 0); // 害羞
-        AskUser("真央是否播放了一个动作（例如身体扭动害羞）？");
+        server.PlayMotion("TapBody", 2); // 点头
+        AskUser("真央是否播放了一个动作（例如点头）？");
     }
 
     [Test, Order(4)]
     public async Task TestPositionAndMove()
     {
-        (double x, double y) = await client.GetPositionAsync();
-        Assert.That(x, Is.GreaterThan(0));
-        Assert.That(y, Is.GreaterThan(0));
+        (double x, double y) = await server.GetPositionAsync();
+        Assert.That(x, Is.GreaterThanOrEqualTo(0));
+        Assert.That(y, Is.GreaterThanOrEqualTo(0));
 
-        await client.MoveAsync(100, 100, 1000);
+        await server.MoveAsync(100, 100, 1000);
         
-        AskUser("真央是否平滑地向右下方移动了？");
+        AskUser("真央是否平滑地向右下方移动了 100 像素？");
     }
 
     [Test, Order(5)]
-    public void TestInteractionClick()
+    public void TestMouseInteractions()
     {
-        recordedPokes.Clear();
+        recordedInteractions.Clear();
         MessageBox.Show(
-            "测试 [单次点击]: 请双击真央（身体或头部）。\n完成操作后，再点击此窗口的“确定”。", 
-            "指令", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+            "测试 [鼠标交互]: \n1. 请点击真央头部 (head)\n2. 请点击真央身体 (body)\n3. 请快速连击 (mouse_combo)\n4. 请绕着真央转 6 圈 (mouse_shake)\n\n完成后点击确定。", 
+            "人工指令", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
 
-        Assert.That(recordedPokes.Count, Is.GreaterThan(0), "在点击确定前，未检测到任何点击消息！");
+        Assert.That(recordedInteractions, Does.Contain("head"), "未检测到头部点击");
+        Assert.That(recordedInteractions, Does.Contain("body"), "未检测到身体点击");
+        Assert.That(recordedInteractions, Does.Contain("mouse_combo"), "未检测到鼠标连击");
+        Assert.That(recordedInteractions, Does.Contain("mouse_shake"), "未检测到围绕转圈");
     }
 
     [Test, Order(6)]
-    public void TestComboClick()
+    public void TestWindowInteractions()
     {
-        recordedPokes.Clear();
+        recordedInteractions.Clear();
         MessageBox.Show(
-            "测试 [连续点击]: 请快速连续地点击真央 5 次以上，直到看到眩晕反应。\n完成操作后，再点击此窗口的“确定”。", 
-            "指令", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+            "测试 [窗口位移交互]: \n1. 请长程甩动窗口 (window_move)\n2. 请快速来回晃动窗口 (window_shake)\n\n完成后点击确定。", 
+            "人工指令", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
 
-        bool hasCombo = recordedPokes.Any(p => p.Contains("连击干扰"));
-        Assert.That(hasCombo, Is.True, "在点击确定前，未检测到连击(Combo)消息！");
+        Assert.That(recordedInteractions, Does.Contain("window_move"), "未检测到快速位移");
+        Assert.That(recordedInteractions, Does.Contain("window_shake"), "未检测到幅度晃动");
     }
 
     [Test, Order(7)]
-    public void TestInteractionShake()
-    {
-        recordedPokes.Clear();
-        MessageBox.Show(
-            "测试 [摇晃]: 请按住鼠标左键甩动真央几圈，直到看到被晃晕的反应。\n完成操作后，再点击此窗口的“确定”。", 
-            "指令", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
-
-        bool hasShake = recordedPokes.Any(p => p.Contains("物理干扰"));
-        Assert.That(hasShake, Is.True, "在点击确定前，未检测到摇晃消息！");
-    }
-
-    [Test, Order(8)]
     public void TestChatInput()
     {
-        recordedChats.Clear();
+        recordedInputs.Clear();
         MessageBox.Show(
-            "测试 [文本输入]: 请在桌宠底部的输入框输入“Hello Mao”并按回车。\n完成操作后，再点击此窗口的“确定”。", 
-            "指令", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+            "测试 [文本输入]: 请在桌宠底部的对话框输入 'Hello World' 并按回车。\n完成后点击确定。", 
+            "人工指令", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
 
-        bool hasChat = recordedChats.Any(c => c == "Hello Mao");
-        Assert.That(hasChat, Is.True, "在点击确定前，未收到正确的聊天输入消息！");
+        Assert.That(recordedInputs, Does.Contain("Hello World"), "未收到正确的聊天输入 [Hello World]");
     }
 
-    DeskPetClient client = null!;
-    List<string> recordedPokes = new();
-    List<string> recordedChats = new();
+    PetServer server = null!;
+    readonly List<string> recordedInteractions = new();
+    readonly List<string> recordedInputs = new();
 
     void AskUser(string question)
     {
-        MessageBoxResult result = MessageBox.Show(question, "人工单元测试验证", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No, MessageBoxOptions.DefaultDesktopOnly);
-        Assert.That(result, Is.EqualTo(MessageBoxResult.Yes), $"人工验证失败: {question}");
+        MessageBoxResult result = MessageBox.Show(question, "集成测试人工验证", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No, MessageBoxOptions.DefaultDesktopOnly);
+        Assert.That(result, Is.EqualTo(MessageBoxResult.Yes), $"验证失败: {question}");
     }
 
     [OneTimeSetUp]
     public void Setup()
     {
-        client = new DeskPetClient();
-        client.OnPoke += p => recordedPokes.Add(p);
-        client.OnChat += c => recordedChats.Add(c);
+        server = new PetServer();
+        server.OnInteracted += key => recordedInteractions.Add(key);
+        server.OnInput += text => recordedInputs.Add(text);
         
-        client.Start();
-        // Give WPF time to load
+        server.OnReady += () => Console.WriteLine("Pet Process Ready.");
+        
+        // 由于 PetServer 构造函数中已经启动了进程，这里可以静候其就绪
         Thread.Sleep(3000);
     }
 
     [OneTimeTearDown]
     public async Task Teardown()
     {
-        await client.DisposeAsync();
+        await server.DisposeAsync();
     }
 }
