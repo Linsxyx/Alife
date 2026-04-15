@@ -3,17 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace Alife.Function.QChat;
 
-#region 协议枚举
-
-[JsonConverter(typeof(JsonStringEnumConverter<OneBotPostType>))]
-public enum OneBotPostType
-{
-    [JsonPropertyName("message")] Message,
-    [JsonPropertyName("message_sent")] MessageSent,
-    [JsonPropertyName("notice")] Notice,
-    [JsonPropertyName("request")] Request,
-    [JsonPropertyName("meta_event")] MetaEvent
-}
+#region 基础枚举
 
 [JsonConverter(typeof(JsonStringEnumConverter<OneBotMessageType>))]
 public enum OneBotMessageType
@@ -31,14 +21,8 @@ public enum OneBotMetaType
 
 #endregion
 
-#region 事件多态模型
+#region 事件模型
 
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "post_type", IgnoreUnrecognizedTypeDiscriminators = true)]
-[JsonDerivedType(typeof(OneBotMessageEvent), "message")]
-[JsonDerivedType(typeof(OneBotMessageEvent), "message_sent")]
-[JsonDerivedType(typeof(OneBotMetaEvent), "meta_event")]
-[JsonDerivedType(typeof(OneBotNoticeEvent), "notice")]
-[JsonDerivedType(typeof(OneBotRequestEvent), "request")]
 public abstract record OneBotBaseEvent
 {
     [JsonPropertyName("time")]
@@ -46,9 +30,6 @@ public abstract record OneBotBaseEvent
 
     [JsonPropertyName("self_id")]
     public long SelfId { get; init; }
-
-    [JsonPropertyName("post_type")]
-    public OneBotPostType PostType { get; init; }
 }
 
 public record OneBotMessageEvent : OneBotBaseEvent
@@ -69,6 +50,8 @@ public record OneBotMessageEvent : OneBotBaseEvent
     public string RawMessage { get; init; } = "";
 }
 
+public record OneBotMessageSentEvent : OneBotMessageEvent;
+
 public record OneBotMetaEvent : OneBotBaseEvent
 {
     [JsonPropertyName("meta_event_type")]
@@ -76,22 +59,16 @@ public record OneBotMetaEvent : OneBotBaseEvent
 
     [JsonPropertyName("sub_type")]
     public string? SubType { get; init; }
-
-    [JsonPropertyName("status")]
-    public JsonElement? Status { get; init; }
-
-    [JsonPropertyName("interval")]
-    public long Interval { get; init; }
 }
 
 public record OneBotNoticeEvent : OneBotBaseEvent
 {
     [JsonPropertyName("notice_type")]
     public string? NoticeType { get; init; }
-    
+
     [JsonPropertyName("user_id")]
     public long UserId { get; init; }
-    
+
     [JsonPropertyName("group_id")]
     public long GroupId { get; init; }
 }
@@ -104,7 +81,7 @@ public record OneBotRequestEvent : OneBotBaseEvent
 
 #endregion
 
-#region API 通讯包
+#region API 模型
 
 public record OneBotAction
 {
