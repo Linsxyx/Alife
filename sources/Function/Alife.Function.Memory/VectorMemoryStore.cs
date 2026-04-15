@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
 using DuckDB.NET.Data;
 
 namespace Alife.Function.Memory;
@@ -24,18 +19,17 @@ public class VectorMemoryStore
         this.vectorizer = vectorizer;
         dbPath = Path.Combine(rootPath, "vector_index.duckdb");
         InitializeDatabase();
-    }
 
-    void InitializeDatabase()
-    {
-        if (!Directory.Exists(rootPath))
-            Directory.CreateDirectory(rootPath);
+        void InitializeDatabase()
+        {
+            if (!Directory.Exists(rootPath))
+                Directory.CreateDirectory(rootPath);
 
-        // 使用极速的本地分析型数据库 DuckDB
-        using var connection = new DuckDBConnection($"Data Source={dbPath}");
-        connection.Open();
-        using var command = connection.CreateCommand();
-        command.CommandText = @"
+            // 使用极速的本地分析型数据库 DuckDB
+            using DuckDBConnection connection = new DuckDBConnection($"Data Source={dbPath}");
+            connection.Open();
+            using DuckDBCommand command = connection.CreateCommand();
+            command.CommandText = @"
             CREATE TABLE IF NOT EXISTS MemoryVectors (
                 Level INTEGER,
                 Name  VARCHAR,
@@ -46,8 +40,10 @@ public class VectorMemoryStore
             );
             CREATE INDEX IF NOT EXISTS idx_level_time ON MemoryVectors(Level DESC, EndTime DESC);
         ";
-        command.ExecuteNonQuery();
+            command.ExecuteNonQuery();
+        }
     }
+
 
     /// <summary>
     /// 功能1：将文本独立存为文件，并解析向量放入数据库（附带时间范围）
@@ -60,18 +56,18 @@ public class VectorMemoryStore
             Directory.CreateDirectory(dir);
 
         string filePath = Path.Combine(dir, $"{name}.json");
-        await File.WriteAllTextAsync(filePath, JsonSerializer.Serialize(text));
+        await File.WriteAllTextAsync(filePath, text);
 
         // 2. 解析为向量
         float[] vector = await vectorizer.VectorizeAsync(text);
-        
+
         // 3. 将标引数据更新到数据库
         using var connection = new DuckDBConnection($"Data Source={dbPath}");
         connection.Open();
-        
+
         // 由于需要使用数组直接合并到 SQL 中以最稳妥执行插入：
         string vectorLiteral = "[" + string.Join(",", vector.Select(f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture))) + "]";
-        
+
         using var command = connection.CreateCommand();
         // DuckDB 官方原生支持直接通过 ON CONFLICT DO UPDATE
         command.CommandText = $@"
@@ -86,7 +82,7 @@ public class VectorMemoryStore
         command.Parameters.Add(new DuckDBParameter("Name", name));
         command.Parameters.Add(new DuckDBParameter("StartTime", startTime.ToUnixTimeMilliseconds()));
         command.Parameters.Add(new DuckDBParameter("EndTime", endTime.ToUnixTimeMilliseconds()));
-        
+
         // 因为 DuckDB.NET 对数组类型的 Parameter Binding 偶尔需要严格驱动匹配，
         // 将向量序列化直接写入 SQL 语句能兼顾极致轻量和防错，对插入性能影响在这种场景下忽略不计
         command.ExecuteNonQuery();
@@ -112,14 +108,14 @@ public class VectorMemoryStore
     {
         float[] queryVector = await vectorizer.VectorizeAsync(query);
         string vectorLiteral = "[" + string.Join(",", queryVector.Select(f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture))) + "]";
-        
+
         var matches = new List<(int Level, string Name, DateTimeOffset Start, DateTimeOffset End, float Score)>();
 
         using (var connection = new DuckDBConnection($"Data Source={dbPath}"))
         {
             connection.Open();
             using var command = connection.CreateCommand();
-            
+
             // 下方是纯正的霸王级分析型 SQL。由于 DuckDB C++ 引擎对这种单机查询优化极猛
             // 把 array_cosine_similarity 在 SQL 里算，连内存都不用来回倒了，比 C# 本地迭代要快几十倍。
             command.CommandText = $@"
@@ -130,7 +126,7 @@ public class VectorMemoryStore
                 ORDER BY Score DESC, Level DESC, EndTime DESC
                 LIMIT {topK}
             ";
-            
+
             command.Parameters.Add(new DuckDBParameter("Min", minTime.HasValue ? minTime.Value.ToUnixTimeMilliseconds() : DBNull.Value));
             command.Parameters.Add(new DuckDBParameter("Max", maxTime.HasValue ? maxTime.Value.ToUnixTimeMilliseconds() : DBNull.Value));
 
@@ -142,7 +138,7 @@ public class VectorMemoryStore
                 long startMs = reader.GetInt64(2);
                 long endMs = reader.GetInt64(3);
                 float score = reader.GetFloat(4);
-                
+
                 matches.Add((level, name, DateTimeOffset.FromUnixTimeMilliseconds(startMs), DateTimeOffset.FromUnixTimeMilliseconds(endMs), score));
             }
         }

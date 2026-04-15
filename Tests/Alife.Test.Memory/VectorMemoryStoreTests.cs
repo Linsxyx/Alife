@@ -1,20 +1,16 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
 using Alife.Basic;
 using Alife.Function.Memory;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+
 
 namespace Alife.Test.Memory;
 
-[TestClass]
+[TestFixture]
 public class VectorMemoryStoreTests
 {
     string tempDbDir = string.Empty;
     VectorMemoryStore? store;
 
-    [TestInitialize]
+    [OneTimeSetUp]
     public void Setup()
     {
         tempDbDir = Path.Combine(Path.GetTempPath(), "AlifeTests", Guid.NewGuid().ToString());
@@ -25,7 +21,7 @@ public class VectorMemoryStoreTests
         store = new VectorMemoryStore(tempDbDir, realVectorizer);
     }
 
-    [TestCleanup]
+    [OneTimeTearDown]
     public void Cleanup()
     {
         // DuckDB 文件占用解除需要垃圾回收等资源完全释放，稍微延时确保清空文件
@@ -34,7 +30,7 @@ public class VectorMemoryStoreTests
         try { if (Directory.Exists(tempDbDir)) Directory.Delete(tempDbDir, true); } catch { }
     }
 
-    [TestMethod]
+    [Test]
     public async Task Search_ShouldReturnSemanticMatches()
     {
         // Arrange - 插入两条语义完全不同的话
@@ -46,17 +42,17 @@ public class VectorMemoryStoreTests
         var results = await store!.SearchAsync("我饿了想找点宵夜或者吃的", topK: 2);
 
         // Assert - 确认拿到了结果，且"食物"那条的相似度必须排第一
-        Assert.AreEqual(2, results.Count);
-        Assert.AreEqual("Memory_Food", results[0].Name, "语义搜索失败，第一条不是食物记忆");
+        Assert.That(results.Count, Is.EqualTo(2));
+        Assert.That(results[0].Name, Is.EqualTo("Memory_Food"), "语义搜索失败，第一条不是食物记忆");
         
         // 分别输出打分，方便在控制台看到真实的 Cosine Similarity
         Console.WriteLine($"食物匹配得分: {results[0].Score}");
         Console.WriteLine($"科技匹配得分: {results[1].Score}");
         
-        Assert.IsTrue(results[0].Score > results[1].Score, "食物的相关度得分应该远高于科技新闻");
+        Assert.That(results[0].Score, Is.GreaterThan(results[1].Score), "食物的相关度得分应该远高于科技新闻");
     }
 
-    [TestMethod]
+    [Test]
     public async Task Search_ShouldFilterByTime_AndOrderCorrectly()
     {
         // Arrange
@@ -76,12 +72,12 @@ public class VectorMemoryStoreTests
         var results = await store!.SearchAsync("相同的文本", topK: 10);
 
         // Assert 1:
-        Assert.AreEqual(4, results.Count);
+        Assert.That(results.Count, Is.EqualTo(4));
         // 如果相似度都极小（接近0），后续排序按照 Level >= Timestamp
-        Assert.AreEqual("New_L2", results[0].Name); 
-        Assert.AreEqual("New_L1", results[1].Name); 
-        Assert.AreEqual("Mid_L1", results[2].Name); 
-        Assert.AreEqual("Old_L0", results[3].Name); 
+        Assert.That(results[0].Name, Is.EqualTo("New_L2")); 
+        Assert.That(results[1].Name, Is.EqualTo("New_L1")); 
+        Assert.That(results[2].Name, Is.EqualTo("Mid_L1")); 
+        Assert.That(results[3].Name, Is.EqualTo("Old_L0")); 
 
         // Act 2: 按时间限制进行搜索（排除最新的，只搜老和中等）
         var resultsFiltered = await store!.SearchAsync(
@@ -92,8 +88,8 @@ public class VectorMemoryStoreTests
         );
 
         // Assert 2:
-        Assert.AreEqual(2, resultsFiltered.Count); // 应该只有 Mid 和 Old
-        Assert.AreEqual("Mid_L1", resultsFiltered[0].Name); 
-        Assert.AreEqual("Old_L0", resultsFiltered[1].Name);
+        Assert.That(resultsFiltered.Count, Is.EqualTo(2)); // 应该只有 Mid 和 Old
+        Assert.That(resultsFiltered[0].Name, Is.EqualTo("Mid_L1")); 
+        Assert.That(resultsFiltered[1].Name, Is.EqualTo("Old_L0"));
     }
 }
