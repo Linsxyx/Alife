@@ -36,9 +36,9 @@ public class MemoryManager
         }
 
         //遍历每个层级的聊天记录
-        int areaLevel = 0;
-        int areaStart = contentIndex;
-        int areaCount = 0;
+        int areaLevel = -1;
+        int areaStart = -1;
+        int areaCount = -1;
         for (; contentIndex < chatHistory.Count; contentIndex++)
         {
             ChatMessageContent currentContent = chatHistory[contentIndex];
@@ -50,7 +50,11 @@ public class MemoryManager
                 //进入一个区域
                 areaLevel = currentLevel;
                 areaStart = contentIndex;
-                areaCount = 0;
+                areaCount = 1;
+            }
+            else
+            {
+                areaCount++;
             }
 
             //计算当前区域的压缩参数
@@ -91,7 +95,7 @@ public class MemoryManager
             if (chatMessageContent.Content == null)
                 continue;
             history.Add(new HistoryRecord(
-                AuthorRole.Assistant,
+                chatMessageContent.Role,
                 chatMessageContent.Content,
                 GetMemoryMetaData(chatMessageContent)
             ));

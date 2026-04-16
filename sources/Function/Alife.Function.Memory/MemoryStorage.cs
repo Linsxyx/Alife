@@ -97,8 +97,7 @@ public class MemoryStorage
         if (!File.Exists(filePath))
             return null;
 
-        string json = await File.ReadAllTextAsync(filePath);
-        return JsonSerializer.Deserialize<string>(json);
+        return await File.ReadAllTextAsync(filePath);
     }
 
     /// <summary>

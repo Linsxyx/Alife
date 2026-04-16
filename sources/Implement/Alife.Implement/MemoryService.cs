@@ -9,8 +9,13 @@ using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Implement;
 
+public record MemoryConfig
+{
+    public int Threshold { get; set; } = 256;
+    public int BatchSize { get; set; } = 192;
+}
 [Plugin("记忆服务", "自动管理和分层压缩对话记忆，提供长期记忆检索能力。", LaunchOrder = -100)]
-public class MemoryService : Plugin
+public class MemoryService : Plugin, IConfigurable<MemoryConfig>
 {
     [XmlFunction]
     [Description("读取记忆档案的完整记录。")]
@@ -42,6 +47,12 @@ public class MemoryService : Plugin
     MemoryManager memoryManager = null!;
     ChatBot chatBot = null!;
     ChatHistory chatHistory = null!;
+    MemoryConfig config = null!;
+
+    public void Configure(MemoryConfig configuration)
+    {
+        config = configuration;
+    }
 
     public MemoryService(InterpreterService interpreterService)
     {
@@ -60,7 +71,7 @@ public class MemoryService : Plugin
         TextVectorizer vectorizer = new(AlifePath.ModelsFolderPath);
         AlifeTextCompressor compressor = new(kernel.GetRequiredService<IChatCompletionService>(), chatHistory);
         string storagePath = Path.Combine(AlifePath.StorageFolderPath, "Memory");
-        memoryManager = new MemoryManager(compressor, vectorizer, storagePath);
+        memoryManager = new MemoryManager(compressor, vectorizer, storagePath, config.Threshold, config.BatchSize);
 
         //加载历史记忆
         memoryManager.LoadHistory(chatHistory);
@@ -72,6 +83,9 @@ public class MemoryService : Plugin
     {
         try
         {
+            if (content.Role != AuthorRole.Assistant)
+                return; //只在ai说话后整理，这样对话更完整
+
             await chatBot.ChatSemaphore.WaitAsync();
             await memoryManager.Filter(chatHistory);
             memoryManager.SaveHistory(chatHistory);
@@ -90,12 +104,14 @@ public class MemoryService : Plugin
     {
         public override async Task<string> Compress(string text)
         {
-            ChatHistory chatHistory = new(history);
+            ChatHistory chatHistory = new(history.Where(messageContent => messageContent.Role != AuthorRole.System));
             chatHistory.AddMessage(AuthorRole.User,
                 $"""
                  [{nameof(MemoryService)}] 触发上下文压缩了！
-                 如下是之前的一段聊天记录或记忆档案，待会他们将会被归档并移出上下文，所以请你用第一人称视角简述一下内容，方便日后回忆。（注意写明时间段，并按重要程度进行取舍）：
+                 接下来你会收到之前的一段聊天记录或记忆档案，待会它们将会被归档并移出上下文，所以请你用第一人称视角简述一下发生的事情，方便日后回忆。
+                 （注意写明时间段，并按重要程度进行取舍，保持对一些关键数据的记录）
 
+                 具体要总结的记录如下，请直接开始事件描述：
                  {text}
                  """);
             ChatMessageContent content = await chatCompletionService.GetChatMessageContentAsync(chatHistory);
