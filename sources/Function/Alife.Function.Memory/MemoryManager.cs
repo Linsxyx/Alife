@@ -25,7 +25,7 @@ public class MemoryManager
             Directory.CreateDirectory(storagePath);
     }
 
-    public async Task Filter(ChatHistory chatHistory)
+    public async Task<bool> Filter(ChatHistory chatHistory)
     {
         //跳过系统提示词
         int contentIndex = 0;
@@ -39,6 +39,8 @@ public class MemoryManager
         int areaLevel = -1;
         int areaStart = -1;
         int areaCount = -1;
+        int areaCompressionThreshold = -1;
+        int areaCompressionCount = -1;
         for (; contentIndex < chatHistory.Count; contentIndex++)
         {
             ChatMessageContent currentContent = chatHistory[contentIndex];
@@ -51,22 +53,18 @@ public class MemoryManager
                 areaLevel = currentLevel;
                 areaStart = contentIndex;
                 areaCount = 1;
+                areaCompressionThreshold = (int)MathF.Max(compressionThreshold / MathF.Pow(2, currentLevel), 3);
+                areaCompressionCount = (int)MathF.Max(compressionCount / MathF.Pow(2, currentLevel), 2);
             }
             else
             {
                 areaCount++;
             }
 
-            //计算当前区域的压缩参数
-            int areaCompressionThreshold = (int)(compressionThreshold / MathF.Pow(2, currentLevel));
-            int areaCompressionCount = (int)(compressionCount / MathF.Pow(2, currentLevel));
-            if (areaCompressionCount == 0)
-                continue; //达到最高压缩层，无法压缩的记忆
-
             if (areaCount >= areaCompressionThreshold)
             {
                 //压缩记忆
-                DateTime startTime = GetMemoryMetaData(chatHistory[contentIndex]).StartTime;
+                DateTime startTime = GetMemoryMetaData(chatHistory[areaStart]).StartTime;
                 DateTime endTime = currentMemoryMeta.EndTime;
                 string original = PickContent(chatHistory, areaStart, areaStart + areaCompressionCount);
                 string compressed = await compressor.Compress(original);
@@ -78,14 +76,16 @@ public class MemoryManager
                 chatHistory.RemoveRange(areaStart, areaCompressionCount);
 
                 //增加新的记录
-                compressed = $"[记忆档案]在{startTime}到{endTime}期间\n{compressed}\n完整记录索引：{name})";
+                compressed = $"[记忆档案(L{areaLevel})]在{startTime}到{endTime}期间\n{compressed}\n完整记录索引：{name})";
                 ChatMessageContent compressedContent = new(AuthorRole.Assistant, compressed);
-                chatHistory.Add(compressedContent);
+                chatHistory.Insert(areaStart, compressedContent);
                 memoryMetaDatas[compressedContent] = new MemoryMeta(areaLevel + 1, startTime, endTime);
 
-                return;
+                return true;
             }
         }
+
+        return false;
     }
     public void SaveHistory(ChatHistory chatHistory)
     {
@@ -100,7 +100,7 @@ public class MemoryManager
                 GetMemoryMetaData(chatMessageContent)
             ));
         }
-        File.WriteAllText(historyStoragePath, JsonConvert.SerializeObject(history));
+        File.WriteAllText(historyStoragePath, JsonConvert.SerializeObject(history, Formatting.Indented));
     }
     public void LoadHistory(ChatHistory chatHistory)
     {
@@ -163,7 +163,7 @@ public class MemoryManager
         for (int index = start; index < end; index++)
         {
             ChatMessageContent content = chatHistory[index];
-            stringBuilder.AppendLine($"【{content.Role}】：{content.Content}");
+            stringBuilder.AppendLine($"【{content.Role}】：\n{content.Content}\n");
         }
 
         return stringBuilder.ToString();

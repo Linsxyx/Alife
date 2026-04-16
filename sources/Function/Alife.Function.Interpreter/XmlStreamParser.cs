@@ -9,6 +9,7 @@ public class XmlStreamParser
     public Func<Task>? TagOpened { get; set; }
     public Func<Task>? TagClosed { get; set; }
     public Func<Task>? TagShotted { get; set; }
+    public Func<Task>? TagReset { get; set; }
     public Func<char, Task>? ContentGot { get; set; }
 
     public async Task Feed(char ch)
@@ -128,6 +129,11 @@ public class XmlStreamParser
         ClearTag();
     }
 
+    public XmlStreamParser(string safeArea = "")
+    {
+        this.safeArea = safeArea;
+    }
+
     //注释状态
     bool isAnnotation;
     readonly StringBuilder annotationBuffer = new();
@@ -147,10 +153,11 @@ public class XmlStreamParser
     int tagMode;
 
     readonly List<string> tagStack = new();
+    readonly string safeArea;
 
     async Task HandleContentChar(char ch)
     {
-        if (ContentGot != null)
+        if (ContentGot != null && tagStack.Contains(safeArea) == false)
             await ContentGot.Invoke(ch);
     }
     void HandleTagChar(char ch)
@@ -234,23 +241,36 @@ public class XmlStreamParser
             switch (tagMode)
             {
                 case 0:
-                    tagStack.Add(currentTagName);
-                    if (TagOpened != null)
-                        await TagOpened.Invoke();
-                    break;
-                case 1:
-                    if (tagStack.Count != 0 && tagStack.Last() == currentTagName)
+                    if (tagStack.Contains(safeArea) == false)
                     {
-                        if (TagClosed != null)
-                            await TagClosed.Invoke();
-                        tagStack.RemoveAt(tagStack.Count - 1);
+                        tagStack.Add(currentTagName);
+                        if (TagOpened != null)
+                            await TagOpened.Invoke();
                     }
                     break;
-                case 2:
-                    tagStack.Add(currentTagName);
-                    if (TagShotted != null)
-                        await TagShotted.Invoke();
+                case 1:
+                    if (tagStack.Contains(currentTagName) == false)
+                        break; //无效的孤儿闭标签（未触发事件和入栈，直接无视即可）
+                    while (tagStack.Last() != currentTagName)
+                    {
+                        //移除无效的孤儿开标签（因为入栈且调用过函数，所以要回调）
+                        if (TagReset != null)
+                            await TagReset.Invoke();
+                        tagStack.RemoveAt(tagStack.Count - 1);
+                    }
+
+                    if (TagClosed != null)
+                        await TagClosed.Invoke();
                     tagStack.RemoveAt(tagStack.Count - 1);
+                    break;
+                case 2:
+                    if (tagStack.Contains(safeArea) == false)
+                    {
+                        tagStack.Add(currentTagName);
+                        if (TagShotted != null && tagStack.Contains(safeArea) == false)
+                            await TagShotted.Invoke();
+                        tagStack.RemoveAt(tagStack.Count - 1);
+                    }
                     break;
             }
         }

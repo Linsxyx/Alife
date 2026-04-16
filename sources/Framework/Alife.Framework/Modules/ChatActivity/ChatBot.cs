@@ -32,8 +32,7 @@ public class ChatBot : IAsyncDisposable
             llmAgentThread.ChatHistory.AddMessage(role ?? AuthorRole.User, message);
             cancelChatSource = new CancellationTokenSource();
 
-            for (; lastContentIndex < ChatHistory.Count; lastContentIndex++)
-                ChatHistoryAdd?.Invoke(ChatHistory[lastContentIndex]);
+            ChaseChatHistory();
 
             ChatSent?.Invoke(message);
             string? error = null;
@@ -76,8 +75,7 @@ public class ChatBot : IAsyncDisposable
             }
             ChatOver?.Invoke();
 
-            for (; lastContentIndex < ChatHistory.Count; lastContentIndex++)
-                ChatHistoryAdd?.Invoke(ChatHistory[lastContentIndex]);
+            ChaseChatHistory();
 
             if (error != null)
             {
@@ -111,6 +109,11 @@ public class ChatBot : IAsyncDisposable
             messageCache.TryDequeue(out _);
         messageCache.Enqueue(message);
         lastAutoFlushTime = 0; //重新计时，防止后续还有Poke
+    }
+
+    public void UpdateHistoryEndIndex()
+    {
+        lastContentIndex = ChatHistory.Count;
     }
 
     readonly ChatCompletionAgent llmAgent;
@@ -178,7 +181,7 @@ public class ChatBot : IAsyncDisposable
         {
             //组合消息
             StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.AppendLine("[来自系统的消息缓存](这不是主人的消息，请先用think思考后再看情况回复)");
+            stringBuilder.AppendLine("[来自系统的消息缓存](这不是用户的消息，请先用<think>思考后再看情况回复)");
             foreach (string message in messageCache)
                 stringBuilder.AppendLine(message);
             messageCache.Clear();
@@ -186,5 +189,11 @@ public class ChatBot : IAsyncDisposable
             //发送消息
             Chat(stringBuilder.ToString());
         }
+    }
+
+    void ChaseChatHistory()
+    {
+        for (; lastContentIndex < ChatHistory.Count; lastContentIndex++)
+            ChatHistoryAdd?.Invoke(ChatHistory[lastContentIndex]);
     }
 }

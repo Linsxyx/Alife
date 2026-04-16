@@ -68,7 +68,7 @@ public class Program
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
                     Console.Write("[SYSTEM     ] ");
                 }
-                else if (msg.Content != null && msg.Content.Contains("[记忆档案]"))
+                else if (msg.Content != null && msg.Content.StartsWith("[记忆档案"))
                 {
                     Console.ForegroundColor = ConsoleColor.Blue;
                     Console.Write("[ARCHIVED   ] ");

@@ -55,7 +55,7 @@ public class MemoryStorage
         if (!Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        string filePath = Path.Combine(dir, $"{name}.json");
+        string filePath = Path.Combine(dir, $"{name}.txt");
         await File.WriteAllTextAsync(filePath, text);
 
         // 2. 解析为向量
@@ -69,19 +69,19 @@ public class MemoryStorage
         string vectorLiteral = "[" + string.Join(",", vector.Select(f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture))) + "]";
 
         await using DuckDBCommand command = connection.CreateCommand();
-        // DuckDB 官方原生支持直接通过 ON CONFLICT DO UPDATE
+        // DuckDB.NET 对 $1, $2 等编号参数支持最稳健，可避免 named parameters 导致的 BindParameter 空指针异常
         command.CommandText = $@"
             INSERT INTO MemoryVectors (Level, Name, StartTime, EndTime, Vector)
-            VALUES ($Level, $Name, $StartTime, $EndTime, {vectorLiteral})
+            VALUES ($1, $2, $3, $4, {vectorLiteral})
             ON CONFLICT (Level, Name) DO UPDATE SET 
             StartTime = excluded.StartTime, 
             EndTime = excluded.EndTime, 
             Vector = excluded.Vector;
         ";
-        command.Parameters.Add(new DuckDBParameter("Level", level));
-        command.Parameters.Add(new DuckDBParameter("Name", name));
-        command.Parameters.Add(new DuckDBParameter("StartTime", startTime.ToUnixTimeMilliseconds()));
-        command.Parameters.Add(new DuckDBParameter("EndTime", endTime.ToUnixTimeMilliseconds()));
+        command.Parameters.Add(new DuckDBParameter(level));
+        command.Parameters.Add(new DuckDBParameter(name));
+        command.Parameters.Add(new DuckDBParameter(startTime.ToUnixTimeMilliseconds()));
+        command.Parameters.Add(new DuckDBParameter(endTime.ToUnixTimeMilliseconds()));
 
         // 因为 DuckDB.NET 对数组类型的 Parameter Binding 偶尔需要严格驱动匹配，
         // 将向量序列化直接写入 SQL 语句能兼顾极致轻量和防错，对插入性能影响在这种场景下忽略不计
@@ -93,7 +93,7 @@ public class MemoryStorage
     /// </summary>
     public async Task<string?> LoadAsync(int level, string name)
     {
-        string filePath = Path.Combine(rootPath, $"L{level}", $"{name}.json");
+        string filePath = Path.Combine(rootPath, $"L{level}", $"{name}.txt");
         if (!File.Exists(filePath))
             return null;
 
@@ -117,17 +117,20 @@ public class MemoryStorage
 
             // 下方是纯正的霸王级分析型 SQL。由于 DuckDB C++ 引擎对这种单机查询优化极猛
             // 把 array_cosine_similarity 在 SQL 里算，连内存都不用来回倒了，比 C# 本地迭代要快几十倍。
+            // 使用 $1, $2 编号参数确保查询引擎和驱动绑定的兼容性
             command.CommandText = $@"
                 SELECT Level, Name, StartTime, EndTime, array_cosine_similarity(Vector, {vectorLiteral}::FLOAT[512]) as Score
                 FROM MemoryVectors 
-                WHERE ($Min IS NULL OR EndTime >= $Min) 
-                  AND ($Max IS NULL OR StartTime <= $Max)
+                WHERE ($1 IS NULL OR EndTime >= $1) 
+                  AND ($2 IS NULL OR StartTime <= $2)
                 ORDER BY Score DESC, Level DESC, EndTime DESC
                 LIMIT {topK}
             ";
 
-            command.Parameters.Add(new DuckDBParameter("Min", minTime.HasValue ? minTime.Value.ToUnixTimeMilliseconds() : DBNull.Value));
-            command.Parameters.Add(new DuckDBParameter("Max", maxTime.HasValue ? maxTime.Value.ToUnixTimeMilliseconds() : DBNull.Value));
+            object minVal = minTime.HasValue ? minTime.Value.ToUnixTimeMilliseconds() : DBNull.Value;
+            object maxVal = maxTime.HasValue ? maxTime.Value.ToUnixTimeMilliseconds() : DBNull.Value;
+            command.Parameters.Add(new DuckDBParameter(minVal));
+            command.Parameters.Add(new DuckDBParameter(maxVal));
 
             await using DuckDBDataReader reader = command.ExecuteReader();
             while (reader.Read())

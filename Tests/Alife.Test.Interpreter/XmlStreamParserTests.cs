@@ -32,6 +32,12 @@ public class XmlStreamParserTests
             stringBuilder.Clear();
             return Task.CompletedTask;
         };
+        parser.TagReset = () => {
+            Log("异常关闭" + parser.TagStack.Last());
+            output.AppendLine("内容：" + stringBuilder);
+            stringBuilder.Clear();
+            return Task.CompletedTask;
+        };
         parser.TagShotted = () => {
             Log("一次" + parser.TagStack.Last(), parser.TagParameters);
             return Task.CompletedTask;
@@ -96,7 +102,10 @@ public class XmlStreamParserTests
 调用：name-userProfile-response
 区间：打开name
 参数：
-{}
+{
+  ""id"": ""1001"",
+  ""role"": ""admin""
+}
 ======
 调用：name-userProfile-response
 区间：关闭name
@@ -105,7 +114,10 @@ public class XmlStreamParserTests
 调用：standard-userProfile-response
 区间：打开standard
 参数：
-{}
+{
+  ""id"": ""1001"",
+  ""role"": ""admin""
+}
 ======
 调用：standard-userProfile-response
 区间：关闭standard
@@ -114,12 +126,18 @@ public class XmlStreamParserTests
 调用：preferences-userProfile-response
 区间：打开preferences
 参数：
-{}
+{
+  ""id"": ""1001"",
+  ""role"": ""admin""
+}
 ======
 调用：theme-preferences-userProfile-response
 区间：打开theme
 参数：
-{}
+{
+  ""id"": ""1001"",
+  ""role"": ""admin""
+}
 ======
 调用：theme-preferences-userProfile-response
 区间：关闭theme
@@ -129,6 +147,8 @@ public class XmlStreamParserTests
 区间：一次notifications
 参数：
 {
+  ""id"": ""1001"",
+  ""role"": ""admin"",
   ""enabled"": ""true""
 }
 ======
@@ -139,11 +159,8 @@ public class XmlStreamParserTests
         
 ======
 调用：userProfile-response
-区间：关闭userProfile
+区间：异常关闭userProfile
 内容：
-
-
-最后再拖拽一段没有根节点的游离文本。
 
 ======
 调用：response

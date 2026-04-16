@@ -71,11 +71,13 @@ public class XmlStreamExecutor : IAsyncDisposable
         this.parser.TagOpened = OnTagOpened;
         this.parser.TagShotted = OnTagShotted;
         this.parser.TagClosed = OnTagClosed;
+        this.parser.TagReset = OnTagReset;
         this.parser.ContentGot = OnContentGot;
 
         processingTokenSource = new CancellationTokenSource();
         LoopProcessInput(processingTokenSource.Token);
     }
+
     public async ValueTask DisposeAsync()
     {
         await processingTokenSource.CancelAsync();
@@ -142,6 +144,12 @@ public class XmlStreamExecutor : IAsyncDisposable
         if (aboveContentBuffer.Count < parser.TagStack.Count)
             aboveContentBuffer.Add(new StringBuilder());
         return HandleTag(CallMode.OneShot);
+    }
+
+    async Task OnTagReset()
+    {
+        await HandleTag(CallMode.Reset);
+        aboveContentBuffer[parser.TagStack.Count - 1].Clear();
     }
 
     Task HandleTag(CallMode callMode)

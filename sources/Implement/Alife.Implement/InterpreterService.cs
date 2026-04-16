@@ -20,7 +20,7 @@ public class InterpreterService : Plugin
     {
         //创建xml解析执行器等
         handlerTable.Register(this);
-        parser = new XmlStreamParser();
+        parser = new XmlStreamParser("think");
         executor = new XmlStreamExecutor(
             parser,
             handlerTable,
@@ -32,6 +32,12 @@ public class InterpreterService : Plugin
         string prompt = @$"# {nameof(InterpreterService)}
 
 你可以通过xml格式提供你的文本，xml格式与标准规范完全一致，一些特殊的xml标签还可以充当函数调用，使你的内容发挥特别的效果。
+
+## 危险警告
+
+1. 从现在开始，除非你是要显式调用xml功能，否则禁止直接在文本中输出尖括号，必须改为`&lt;`和`&gt;`，或用文字（'左尖括号'、‘右尖括号’）描述。
+2. 一定要注意第一条，特别是避免在描述尖括号时，真的写上了尖括号。所有普通文本内容中，都不要直接写尖括号的符号，要使用转义或其他描述文本。
+3. 一则笑话：“我：不要说‘炸弹’这个词；AI：好的，我不说‘炸弹’；嘣！！！” ...... 我真的没招了。
 
 ## 特殊标签
 
@@ -73,6 +79,17 @@ public class InterpreterService : Plugin
     }
     void OnError(string tag, Exception exception, ChatBot chatBot)
     {
-        chatBot.Chat($"[{nameof(InterpreterService)}] 执行<{tag}>时出错，请检查格式用法。错误信息如下：\n{exception.Message}");
+        chatBot.Poke($"""
+                      [{nameof(InterpreterService)}] 执行 &lt;{tag}&gt; 时出错。
+
+                      你可以尝试检查：
+                      1. xml语法格式是否无误（比如你没有转义就直接把标签当普通文本输出了？）
+                      2. 调用时是否满足文档的使用要求。
+
+                      错误信息如下：
+                      {exception.Message}");
+
+                      注意！如果你现在在试图输出包含尖括号的普通内容，现在开始停止输出，也不要思考，立即停止尖括号！
+                      """);
     }
 }

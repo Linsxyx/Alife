@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text;
+using System.Text.RegularExpressions;
 using Alife.Basic;
 using Alife.Framework;
 using Alife.Function.Interpreter;
@@ -30,16 +31,21 @@ public class MemoryService : Plugin, IConfigurable<MemoryConfig>
             : $"[{nameof(MemoryService)}] 未找到记忆记录");
     }
     [XmlFunction]
-    [Description("在归档的记忆记录中搜索内容。")]
-    public async Task Search(XmlExecutorContext ctx, [XmlContent] string query)
+    [Description($"在归档的记忆记录中搜索内容（搜索到的结果是索引，你需要用 {nameof(Recall)} 打开）。")]
+    public async Task Search(XmlExecutorContext ctx, [XmlContent] string _)
     {
+        if (ctx.CallMode != CallMode.Closing)
+            return;
+
+        string query = ctx.FullContent.Trim();
         List<SearchResult> results = await memoryManager.SearchMemory(query);
         StringBuilder stringBuilder = new();
-        stringBuilder.AppendLine($"[{nameof(MemoryService)}] 按匹配度搜索到如下内容：");
+        stringBuilder.AppendLine($"[{nameof(MemoryService)}] “{query}”的搜索结果如下：");
         for (int index = 0; index < results.Count; index++)
         {
             SearchResult searchResult = results[index];
-            stringBuilder.AppendLine($"{index}. 索引：{searchResult.Name},发生时间：{searchResult.StartTime}到{searchResult.EndTime},相似度：{searchResult.Score}");
+            stringBuilder.AppendLine(
+                $"{index} > 匹配度：{searchResult.Score},发生时间：{searchResult.StartTime}到{searchResult.EndTime},具体内容索引：{searchResult.Name},前一百字内容：{searchResult.Text[..100]}");
         }
         chatBot.Poke(stringBuilder.ToString());
     }
@@ -70,7 +76,7 @@ public class MemoryService : Plugin, IConfigurable<MemoryConfig>
         //初始化向量化器和感知人设的压缩器
         TextVectorizer vectorizer = new(AlifePath.ModelsFolderPath);
         AlifeTextCompressor compressor = new(kernel.GetRequiredService<IChatCompletionService>(), chatHistory);
-        string storagePath = Path.Combine(AlifePath.StorageFolderPath, "Memory");
+        string storagePath = Path.Combine(AlifePath.StorageFolderPath, "Memory", chatActivity.Character.ID);
         memoryManager = new MemoryManager(compressor, vectorizer, storagePath, config.Threshold, config.BatchSize);
 
         //加载历史记忆
@@ -87,8 +93,9 @@ public class MemoryService : Plugin, IConfigurable<MemoryConfig>
                 return; //只在ai说话后整理，这样对话更完整
 
             await chatBot.ChatSemaphore.WaitAsync();
-            await memoryManager.Filter(chatHistory);
             memoryManager.SaveHistory(chatHistory);
+            if (await memoryManager.Filter(chatHistory))
+                chatBot.UpdateHistoryEndIndex();
             chatBot.ChatSemaphore.Release();
         }
         catch (Exception e)
@@ -104,21 +111,32 @@ public class MemoryService : Plugin, IConfigurable<MemoryConfig>
     {
         public override async Task<string> Compress(string text)
         {
-            ChatHistory chatHistory = new(history.Where(messageContent => messageContent.Role != AuthorRole.System));
-            chatHistory.AddMessage(AuthorRole.User,
+            history.AddMessage(AuthorRole.User,
                 $"""
                  [{nameof(MemoryService)}] 触发上下文压缩了！
-                 接下来你会收到之前的一段聊天记录或记忆档案，待会它们将会被归档并移出上下文，所以请你用第一人称视角简述一下发生的事情，方便日后回忆。
-                 （注意写明时间段，并按重要程度进行取舍，保持对一些关键数据的记录）
+                 接下来你会收到之前的一段聊天记录或记忆档案，待会它们将会被移出上下文，所以需要你用第一人称简述一下发生的事情，方便日后回忆。
 
-                 具体要总结的记录如下，请直接开始事件描述：
+                 描述注意事项：
+                 1. 多事件时注意按时间段区分。
+                 2. 按重要程度进行信息舍取。
+                 3. 保持对一些关键数据的记录。
+                 4. 不要记录系统信息，直接口语化描述。
+                 5. 分清事件中的具体人物，不要用‘你’这种代词。
+
+                 具体要总结的记录如下：
+                 ```
                  {text}
+                 ```
+
+                 现在请直接开始事件描述，不要回复‘好的’之类。’。
                  """);
-            ChatMessageContent content = await chatCompletionService.GetChatMessageContentAsync(chatHistory);
+            ChatMessageContent content = await chatCompletionService.GetChatMessageContentAsync(history);
+            history.RemoveAt(history.Count - 1);
             if (content.Content == null)
                 throw new Exception("记忆压缩失败！");
 
-            return content.Content;
+            string result = Regex.Replace(content.Content, "<think>.*?</think>", "", RegexOptions.Singleline).Trim();
+            return result;
         }
     }
 }
