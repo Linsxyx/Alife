@@ -12,8 +12,8 @@ namespace Alife.Implement;
 
 public record MemoryConfig
 {
-    public int Threshold { get; set; } = 24;
-    public int BatchSize { get; set; } = 8;
+    public int Threshold { get; set; } = 32;
+    public int BatchSize { get; set; } = 16;
 }
 [Plugin("记忆服务", "自动管理和分层压缩对话记忆，提供长期记忆检索能力。", LaunchOrder = -100)]
 public class MemoryService : Plugin, IConfigurable<MemoryConfig>

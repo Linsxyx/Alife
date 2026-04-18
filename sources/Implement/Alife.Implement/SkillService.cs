@@ -1,24 +1,16 @@
 using Alife.Basic;
 using Alife.Framework;
-using Microsoft.SemanticKernel;
 
 namespace Alife.Implement;
 
 [Plugin("使用技能", "让ai获得读写技能的功能，利用预先编写的技能脚本，可以实现复杂的任务需求。")]
 public class SkillService : Plugin
 {
-    readonly StorageSystem storageSystem;
-
-    public SkillService(StorageSystem storageSystem)
+    public override Task AwakeAsync(AwakeContext context)
     {
-        this.storageSystem = storageSystem;
-    }
+        string skillsPath = $"{AlifePath.StorageFolderPath}/Skills";
 
-    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
-    {
-        string skillsPath = $"{storageSystem.GetStoragePath()}/Skills";
-
-        chatActivity.ChatBot.ChatHistory.AddSystemMessage($@"# {nameof(SkillService)}
+        context.contextBuilder.ChatHistory.AddSystemMessage($@"# {nameof(SkillService)}
 你拥有使用和编写“技能”的功能。“技能”是通过python脚本，对特定功能的封装，能让你快速调用而不用从头造轮子。
 
 ## 当前技能

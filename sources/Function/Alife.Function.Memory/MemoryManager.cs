@@ -86,6 +86,8 @@ public class MemoryManager
                 chatHistory.Insert(areaStart, compressedContent);
                 memoryMetaDatas[compressedContent] = new MemoryMeta(areaLevel + 1, startTime, endTime);
 
+                Console.WriteLine($"压缩记忆：{name}");
+
                 return true;
             }
         }

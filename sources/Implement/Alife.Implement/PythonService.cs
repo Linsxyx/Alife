@@ -41,13 +41,12 @@ public class PythonService : Plugin
         process.StartInfo = startInfo;
         process.Start();
 
-        string output = await process.StandardOutput.ReadToEndAsync();
-
-
+        string output;
         try
         {
             CancellationTokenSource cts = new(3000);
             await process.WaitForExitAsync(cts.Token);
+            output = await process.StandardOutput.ReadToEndAsync(cts.Token);
         }
         catch (OperationCanceledException)
         {
