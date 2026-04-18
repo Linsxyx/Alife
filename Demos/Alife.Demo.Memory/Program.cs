@@ -22,6 +22,7 @@ public class Program
             Plugins = new HashSet<Type> {
                 typeof(InterpreterService),
                 typeof(MemoryService),
+                typeof(EventService),
                 typeof(OpenAIChatService),
             }
         };

@@ -173,14 +173,16 @@ public class XmlHandlerTable
             }
             else if (TypeDescriptor.GetConverter(parameterInfo.ParameterType).CanConvertFrom(typeof(string)))
             {
-                string parameterType = parameterInfo.ParameterType.Name;
-                if (parameterInfo.ParameterType.IsEnum)
-                    parameterType = string.Join(" | ", parameterInfo.ParameterType.GetEnumNames());
+                bool isCanNull = Nullable.GetUnderlyingType(parameterInfo.ParameterType) != null;
+                Type parameterType = isCanNull ? parameterInfo.ParameterType.GenericTypeArguments[0] : parameterInfo.ParameterType;
+                string parameterTypeName = parameterType.IsEnum ? string.Join(" | ", parameterType.GetEnumNames()) : parameterType.Name;
+                if (isCanNull)
+                    parameterTypeName += "[可选]";
 
                 normalParameters.Add(new XmlParameter() {
                     Name = parameterName,
                     Description = parameterDescription,
-                    Type = parameterType,
+                    Type = parameterTypeName,
                 });
                 normalParameterIndices[parameterName] = index;
             }

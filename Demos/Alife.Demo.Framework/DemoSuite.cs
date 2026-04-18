@@ -4,6 +4,7 @@ using Alife.Basic;
 using Alife.Framework;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
 public class DemoSuite : IAsyncDisposable
@@ -75,7 +76,8 @@ public class DemoSuite : IAsyncDisposable
         };
         ChatBot.ChatOver += () => Console.WriteLine();
 
-        ChatBot.ChatHistoryAdd += (msg) => {
+        void OnChatHistoryAdd(ChatMessageContent msg)
+        {
             if (msg.Role == AuthorRole.User || msg.Role == AuthorRole.Assistant) return;
 
             string content = msg.Content ?? "(无内容)";
@@ -86,7 +88,11 @@ public class DemoSuite : IAsyncDisposable
                 LogSystem($"[TOOL_USED] {content}");
             else
                 Terminal.Log($"[{msg.Role.ToString().ToUpper()}] {content}", ConsoleColor.DarkGray);
-        };
+        }
+
+        ChatBot.ChatHistoryAdd += OnChatHistoryAdd;
+        foreach (ChatMessageContent chatMessageContent in ChatBot.ChatHistory)
+            OnChatHistoryAdd(chatMessageContent);
     }
     public async ValueTask DisposeAsync()
     {

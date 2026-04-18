@@ -12,14 +12,15 @@ public class TextVectorizer
 {
     public TextVectorizer()
     {
-        // 自动自检并下载组件
-        ModelDownloader.EnsureModel("BAAI/bge-small-zh-v1.5");
-        string modelDir = $"{ModelDownloader.ModelScopeCachePath}/BAAI/bge-small-zh-v1___5";
-        string modelPath = $"{modelDir}/model.onnx";
-        string vocabPath = $"{modelDir}/vocab.txt";
+        string modelDir = ModelDownloader.EnsureModel("BAAI/bge-small-zh-v1.5");
+        string modelPath = Path.Combine(modelDir, "model.onnx");
+        string vocabPath = Path.Combine(modelDir, "vocab.txt");
+
+        if (File.Exists(modelPath) == false && File.Exists(Path.Combine(modelDir, "model.safetensors")))
+            ModelDownloader.ConvertSafetensorsToOnnx(modelDir);
 
         if (!File.Exists(modelPath))
-            throw new FileNotFoundException($"找不到嵌入模型：{modelPath}");
+            throw new FileNotFoundException($"ONNX 模型转换失败或未找到：{modelPath}");
         if (!File.Exists(vocabPath))
             throw new FileNotFoundException($"找不到词表文件：{vocabPath}");
 

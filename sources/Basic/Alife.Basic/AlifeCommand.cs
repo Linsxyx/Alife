@@ -9,19 +9,20 @@ public static class AlifeCommand
 {
     public static void EnsureInitialized()
     {
-        if (HasPython())
-            return;
-        InstallPython();
+        if (HasPython() == false)
+        {
+            InstallPython();
+            Command("pip", "config set global.index-url https://mirrors.aliyun.com/pypi/simple/");
+        }
+
         if (HasPython() == false)
             throw new Exception("Python 安装失败或未被识别，请手动安装 Python 3.11+ 并添加到环境变量。");
-
-        Command("pip", "config set global.index-url https://mirrors.aliyun.com/pypi/simple/");
     }
     public static void Command(string fileName, string arguments)
     {
         ProcessStartInfo psi = new() {
             FileName = "cmd.exe",
-            Arguments = $"/c {fileName} {arguments} & pause",
+            Arguments = $"/c {fileName} {arguments}",
             CreateNoWindow = false,
             UseShellExecute = true,
         };

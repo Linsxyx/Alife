@@ -67,6 +67,13 @@ public class MemoryStorage
         command.CommandText = $@"
             INSERT INTO MemoryStorage (Name, Level, Summary, Content, StartTime, EndTime, Vector)
             VALUES ($1, $2, $3, $4, $5, $6, {vectorLiteral})
+            ON CONFLICT (Name) DO UPDATE SET 
+            Level = excluded.Level,
+            Summary = excluded.Summary,
+            Content = excluded.Content,
+            StartTime = excluded.StartTime, 
+            EndTime = excluded.EndTime, 
+            Vector = excluded.Vector;
         ";
         command.Parameters.Add(new DuckDBParameter(name));
         command.Parameters.Add(new DuckDBParameter(level));

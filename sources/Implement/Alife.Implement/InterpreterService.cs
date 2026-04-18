@@ -85,5 +85,7 @@ public class InterpreterService : Plugin
                       1. xml语法格式是否无误（比如你没有转义就直接把标签当普通文本输出了？）
                       2. 调用时是否满足文档的使用要求。
                       """);
+
+        Console.WriteLine(exception);
     }
 }

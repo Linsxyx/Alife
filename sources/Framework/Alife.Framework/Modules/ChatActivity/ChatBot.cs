@@ -110,10 +110,14 @@ public class ChatBot : IAsyncDisposable
         messageCache.Enqueue(message);
         lastAutoFlushTime = 0; //重新计时，防止后续还有Poke
     }
-
     public void UpdateHistoryEndIndex()
     {
         lastContentIndex = ChatHistory.Count;
+    }
+
+    public bool IsPokeMessage(string message)
+    {
+        return message.Contains("[来自系统的消息缓存]");
     }
 
     readonly ChatCompletionAgent llmAgent;

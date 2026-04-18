@@ -19,7 +19,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
 {
     [XmlFunction]
     [Description("设置下次重新开始自动报点的时间。")]
-    public void SetTimer(XmlExecutorContext context, [Description("下次自动报点的时间，格式基于 ISO-8601")] DateTime time)
+    public void SetTimer(XmlExecutorContext context, [Description("下次自动报点的时间，格式为ISO-8601")] DateTime time)
     {
         if (context.CallMode != CallMode.OneShot)
             return;
@@ -28,7 +28,7 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
     }
     [XmlFunction]
     [Description("设置一个一次性的定时提醒（设置时自动取消上一个定时提醒）。如 <SetReminder delay=\"2026-04-18T09:30:00\" remark=\"提醒主人起床\" />")]
-    public void SetReminder(XmlExecutorContext context, [Description("触发的时间，格式基于 ISO-8601")] DateTime time, [Description("备注的消息")] string remark)
+    public void SetReminder(XmlExecutorContext context, [Description("触发的时间，格式为ISO-8601")] DateTime time, [Description("备注的消息")] string remark)
     {
         if (context.CallMode != CallMode.OneShot)
             return;
@@ -57,7 +57,9 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
     public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         chatBot = chatActivity.ChatBot;
-        chatBot.ChatSent += _ => {
+        chatBot.ChatSent += message => {
+            if (chatBot.IsPokeMessage(message))
+                return;
             continuousTimerCount = 0;
             SetTimer(null); //重置自动报点
         };
@@ -101,14 +103,15 @@ public class EventService : Plugin, IConfigurable<EventServiceData>
         if (time == null)
         {
             int offset = Random.Shared.Next(-configuration.UpdateRandomOffset, configuration.UpdateRandomOffset);
-            timeTask[0].Item1 = DateTime.Now.AddSeconds((configuration.UpdateInterval + offset) * MathF.Pow(3, MathF.Min(continuousTimerCount, 5)));
+            int timeOffset = (configuration.UpdateInterval + offset) * (int)MathF.Pow(3, MathF.Min(continuousTimerCount, 5));
+            timeTask[0].Item1 = DateTime.Now.AddSeconds(timeOffset);
         }
         else
         {
             timeTask[0].Item1 = time.Value;
         }
 
-        timeTask[1].Item2 = () => {
+        timeTask[0].Item2 = () => {
             chatBot.Poke($"[{nameof(EventService)}] 这是系统自动报点。你可以借此自由活动或保持安静。({configuration.AppendUpdatePrompt})");
             continuousTimerCount++;
             SetTimer(null); //自动进入下一次报点
