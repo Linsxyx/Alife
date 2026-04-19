@@ -1,5 +1,5 @@
 using Alife.Framework;
-using Microsoft.SemanticKernel;
+using Alife.Function.Interpreter;
 using ModelContextProtocol.Client;
 
 namespace Alife.Implement;
@@ -17,35 +17,43 @@ public class McpPluginConfig
 }
 [Plugin("MCP服务", "让AI可以通过Model Context Protocol接入外部工具。",
     configurationUIType: typeof(McpServiceUI))]
-public class McpService : Plugin, IConfigurable<McpPluginConfig>
+public class McpService : InteractivePlugin, IConfigurable<McpPluginConfig>
 {
+    McpPluginConfig configuration = new();
+    readonly List<McpClient> mcpClients = new();
+    readonly List<XmlHandler> xmlHandlers = new();
+    readonly InterpreterService interpreterService;
+
+    public McpService(InterpreterService interpreterService)
+    {
+        this.interpreterService = interpreterService;
+    }
+
     public void Configure(McpPluginConfig configuration)
     {
         this.configuration = configuration;
     }
-
     public override async Task AwakeAsync(AwakeContext context)
     {
         foreach (McpServerConfig server in configuration.Servers)
         {
-            StdioClientTransport clientTransport = new(new StdioClientTransportOptions {
-                Name = server.Name,
-                Command = server.Command,
-                Arguments = server.Arguments
-            });
-            McpClient client = await McpClient.CreateAsync(clientTransport);
-            IList<McpClientTool> mcpTools = await client.ListToolsAsync();
+            (McpClient client, XmlHandler handler) = await McpXmlAdapter.CreateAsync(
+                server,
+                (name, result) => ChatBot.Poke($"[MCP:{server.Name}] <{name}> 执行完成\n{result}"));
 
-            if (mcpTools.Count > 0)
-            {
-                context.kernelBuilder.Plugins.AddFromFunctions(
-                    server.Name,
-                    server.Description,
-                    mcpTools.Select(tool => tool.AsKernelFunction())
-                );
-            }
+            mcpClients.Add(client);
+            xmlHandlers.Add(handler);
+            interpreterService.RegisterHandler(handler);
         }
     }
+    public override async Task DestroyAsync()
+    {
+        foreach (XmlHandler handler in xmlHandlers)
+            interpreterService.UnregisterHandler(handler);
+        xmlHandlers.Clear();
 
-    McpPluginConfig configuration = new();
+        foreach (McpClient client in mcpClients)
+            await client.DisposeAsync();
+        mcpClients.Clear();
+    }
 }

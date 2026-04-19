@@ -16,14 +16,14 @@ public class XmlContext
     public required IReadOnlyDictionary<string, string> Parameters { get; init; }
     public string Content { get; set; } = "";
 }
-public record XmlHandler
+public class XmlHandler
 {
     public required string Name { get; init; }
     public string? Description { get; init; }
     public List<XmlFunction> Functions { get; init; } = new();
     public required object Instance { get; init; }
 }
-public record XmlFunction : IComparable<XmlFunction>
+public class XmlFunction : IComparable<XmlFunction>
 {
     public required string Name { get; init; }
     public string? Description { get; init; }
@@ -48,6 +48,30 @@ public record XmlParameter
 }
 public class XmlHandlerTable
 {
+    public void Register(XmlHandler handler)
+    {
+        xmlHandlers.Add(handler);
+
+        foreach (XmlFunction xmlFunction in handler.Functions)
+        {
+            if (xmlFunctions.TryGetValue(xmlFunction.Name, out SortedSet<XmlFunction>? xmlFunctionGroup) == false)
+            {
+                xmlFunctionGroup = new SortedSet<XmlFunction>();
+                xmlFunctions[xmlFunction.Name] = xmlFunctionGroup;
+            }
+
+            xmlFunctionGroup.Add(xmlFunction);
+        }
+    }
+    public void Unregister(XmlHandler handler)
+    {
+        xmlHandlers.Remove(handler);
+        foreach (XmlFunction xmlHandlerFunction in handler.Functions)
+        {
+            if (xmlFunctions.TryGetValue(xmlHandlerFunction.Name, out SortedSet<XmlFunction>? xmlFunctionGroup))
+                xmlFunctionGroup.Remove(xmlHandlerFunction);
+        }
+    }
     public void Register(object handler)
     {
         Type handlerType = handler.GetType();
@@ -69,18 +93,7 @@ public class XmlHandlerTable
             Instance = handler,
         };
 
-        xmlHandlers.Add(xmlHandler);
-
-        foreach (XmlFunction xmlFunction in functions)
-        {
-            if (xmlFunctions.TryGetValue(xmlFunction.Name, out SortedSet<XmlFunction>? xmlFunctionGroup) == false)
-            {
-                xmlFunctionGroup = new SortedSet<XmlFunction>();
-                xmlFunctions[xmlFunction.Name] = xmlFunctionGroup;
-            }
-
-            xmlFunctionGroup.Add(xmlFunction);
-        }
+        Register(xmlHandler);
     }
     public void Unregister(object handler)
     {
@@ -88,12 +101,7 @@ public class XmlHandlerTable
         if (xmlHandler == null)
             return;
 
-        xmlHandlers.Remove(xmlHandler);
-        foreach (XmlFunction xmlHandlerFunction in xmlHandler.Functions)
-        {
-            if (xmlFunctions.TryGetValue(xmlHandlerFunction.Name, out SortedSet<XmlFunction>? xmlFunctionGroup))
-                xmlFunctionGroup.Remove(xmlHandlerFunction);
-        }
+        Unregister(xmlHandler);
     }
     public string Document()
     {

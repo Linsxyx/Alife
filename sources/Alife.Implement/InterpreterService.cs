@@ -7,14 +7,10 @@ namespace Alife.Implement;
 [Plugin("XML执行器", "为AI增加一种基于Xml的流式函数执行功能，实现快速实时的交互能力。")]
 public class InterpreterService : Plugin
 {
-    public void RegisterHandler(object handler)
-    {
-        handlerTable.Register(handler);
-    }
-    public void UnregisterHandler(object handler)
-    {
-        handlerTable.Unregister(handler);
-    }
+    public void RegisterHandler(object handler) => handlerTable.Register(handler);
+    public void UnregisterHandler(object handler) => handlerTable.Unregister(handler);
+    public void RegisterHandler(XmlHandler handler) => handlerTable.Register(handler);
+    public void UnregisterHandler(XmlHandler handler) => handlerTable.Unregister(handler);
 
     readonly XmlHandlerTable handlerTable = new();
     XmlStreamParser parser = null!;
