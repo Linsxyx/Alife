@@ -52,7 +52,7 @@
 
             <TreeNode Key="@(pluginID)" DataItem="@((object)pluginType)">
                 <TitleTemplate>
-                    <div style="cursor: pointer; padding: 4px; display: flex; align-items: center; gap: 8px; width: 100%;" 
+                    <div id="plugin-node-@(pluginType.Name)" style="cursor: pointer; padding: 4px; display: flex; align-items: center; gap: 8px; width: 100%;" 
                          @onclick="@(() => OnPluginSelected.InvokeAsync(pluginType))"
                          @onclick:stopPropagation>
                         <Icon Type="build" />

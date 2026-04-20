@@ -7,7 +7,6 @@
 @using Microsoft.SemanticKernel.Connectors.OpenAI
 @using Newtonsoft.Json.Linq
 @using System.Text
-@inject TutorialService TutorialService
 @inject CharacterSystem CharacterSystem
 @inject ChatActivitySystem ChatActivitySystem
 @inject PluginSystem PluginSystem
@@ -141,7 +140,7 @@ else
                                     @if(activity == null) 
                                     {
                                         <div style="margin-top: 24px; text-align: right;">
-                                            <Button Type="@AntDesign.ButtonType.Primary" Size="@AntDesign.ButtonSize.Large" Icon="@IconType.Outline.Save" OnClick="SaveSettings">保存变更</Button>
+                                            <Button id="btn-save-character-settings" Type="@AntDesign.ButtonType.Primary" Size="@AntDesign.ButtonSize.Large" Icon="@IconType.Outline.Save" Loading="isSaving" OnClick="SaveSettings">保存变更</Button>
                                         </div>
                                     }
                                 </Card>
@@ -328,7 +327,6 @@ else
         try 
         {
             await ChatActivitySystem.Play(character);
-            TutorialService.NotifyAction("ActivateCharacter");
             LoadData();
             activeTab = "chat";
         }
@@ -369,17 +367,26 @@ else
         LoadData();
     }
 
-    void SaveSettings()
+    bool isSaving;
+    async Task SaveSettings()
     {
-        if (character == null || activity != null) return;
-        
-        character.Plugins = pluginIDs
-            .Select(PluginSystem.GetPlugin)
-            .Where(p => p != null)
-            .ToHashSet()!;
-        CharacterSystem.SaveCharacter(character);
-        
-        _ = NotificationService.Success(new NotificationConfig { Message = "角色配置已成功保存！" });
+        if (isSaving || character == null || activity != null) return;
+        isSaving = true;
+        try 
+        {
+            character.Plugins = pluginIDs
+                .Select(PluginSystem.GetPlugin)
+                .Where(p => p != null)
+                .ToHashSet()!;
+            CharacterSystem.SaveCharacter(character);
+            
+            _ = NotificationService.Success(new NotificationConfig { Message = "角色配置已成功保存！" });
+            await Task.Delay(500); // 简单防抖
+        }
+        finally
+        {
+            isSaving = false;
+        }
     }
 
     public void Dispose()

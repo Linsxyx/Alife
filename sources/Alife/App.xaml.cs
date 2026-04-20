@@ -4,7 +4,6 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Alife.Framework;
 using Alife.Implement;
-using Alife.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Alife;
@@ -35,7 +34,6 @@ public partial class App : System.Windows.Application
         services.AddSingleton<PluginSystem>();
         services.AddSingleton<CharacterSystem>();
         services.AddSingleton<ChatActivitySystem>();
-        services.AddSingleton<TutorialService>();
         
         // 添加主窗口本身到容器，以便以后注入
         services.AddSingleton<MainWindow>();

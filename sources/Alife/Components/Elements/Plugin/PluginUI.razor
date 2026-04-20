@@ -1,4 +1,4 @@
-@inject TutorialService TutorialService
+@using Alife.Implement
 @inject ConfigurationSystem ConfigurationSystem;
 
 <Collapse>
@@ -8,8 +8,7 @@
                 <SpaceItem>
                     @if (ConfigurationSystem.CanConfiguration(Context))
                     {
-                        <Button id="@(Name == "LLM对话能力" ? "plugin-config-llm" : null)" 
-                                Icon="setting" OnClick="@(() => { isEditing = true; TutorialService.NotifyAction("ConfigLLM"); })"
+                        <Button Icon="setting" OnClick="@(() => { isEditing = true; })"
                                 OnClickStopPropagation="true"></Button>
                         <PluginEditorUI PluginType="Context" @bind-Visible="isEditing"></PluginEditorUI>
                     }

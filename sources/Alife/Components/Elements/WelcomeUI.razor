@@ -1,6 +1,9 @@
 @using AntDesign
 @using Alife.Implement
-@inject TutorialService TutorialService
+@inject CharacterSystem CharacterSystem
+@inject PluginSystem PluginSystem
+@inject ConfigurationSystem ConfigurationSystem
+@inject NavigationManager Navigation
 
 <div class="welcome-container">
     <div class="welcome-card">
@@ -17,9 +20,9 @@
             <Button Type="@AntDesign.ButtonType.Primary" 
                     Size="@AntDesign.ButtonSize.Large" 
                     Icon="@IconType.Outline.Thunderbolt"
-                    OnClick="@(() => TutorialService.Start())"
+                    OnClick="@(() => isQuickSetupVisible = true)"
                     Style="height: 48px; border-radius: 24px; padding: 0 32px; font-weight: bold; box-shadow: 0 4px 12px rgba(24,144,255,0.3)">
-                开启新手引导喵！
+                极速配置助手 (一键首飞)
             </Button>
         </Flex>
 
@@ -28,6 +31,64 @@
         </div>
     </div>
 </div>
+<Modal Title="极速配置助手"
+       Visible="@isQuickSetupVisible"
+       OnOk="@OnQuickSetupConfirm"
+       OnCancel="@(() => isQuickSetupVisible = false)"
+       Width="500">
+    <div style="margin-bottom: 24px;">
+        <Text>请输入您的 OpenAI 兼容协议接口信息喵！填写后我们将自动配置并创建首个专属智能角色助理。</Text>
+    </div>
+    <Form TModel="OpenAIChatServiceConfig" Model="quickConfig" Layout="@FormLayout.Vertical">
+        <FormItem Label="API Base URL (端点)">
+            <Input @bind-Value="quickConfig.endpoint" Placeholder="例如: https://api.deepseek.com/v1" />
+        </FormItem>
+        <FormItem Label="Model ID (模型名称)">
+            <Input @bind-Value="quickConfig.modelId" Placeholder="例如: deepseek-chat" />
+        </FormItem>
+        <FormItem Label="API Key (密钥)">
+            <InputPassword @bind-Value="quickConfig.apiKey" Placeholder="填入你的 API Key 🔑" />
+        </FormItem>
+    </Form>
+</Modal>
+
+@code {
+    bool isQuickSetupVisible;
+    OpenAIChatServiceConfig quickConfig = new() { endpoint = "https://api.deepseek.com/v1", modelId = "deepseek-chat", apiKey = "" };
+
+    void OnQuickSetupConfirm()
+    {
+        if (string.IsNullOrWhiteSpace(quickConfig.apiKey) || string.IsNullOrWhiteSpace(quickConfig.endpoint)) return;
+
+        // 覆盖保存全局组态
+        ConfigurationSystem.SetConfiguration(typeof(OpenAIChatService), quickConfig);
+        
+        // 使用默认“真央”角色（如果没有就建一个）
+        var character = CharacterSystem.GetAllCharacters().FirstOrDefault(c => c.Name == "真央");
+        if (character == null)
+        {
+            CharacterSystem.CreateCharacter("真央");
+            character = CharacterSystem.GetAllCharacters().Last();
+        }
+        
+        // 核心插件全勾上
+        var coreFolder = PluginSystem.GetPluginFolder().Folders.FirstOrDefault(f => f.Name == "核心") 
+            ?? PluginSystem.GetPluginFolder(); // 找不到核心文件夹就勾全部根目录
+
+        foreach (var id in coreFolder.Strings)
+        {
+            var p = PluginSystem.GetPlugin(id);
+            if (p != null) character.Plugins.Add(p);
+        }
+        
+        CharacterSystem.SaveCharacter(character);
+
+        isQuickSetupVisible = false;
+        
+        // 通知跃迁
+        Navigation.NavigateTo($"/agent/{character.Name}");
+    }
+}
 
 <style>
     .welcome-container {

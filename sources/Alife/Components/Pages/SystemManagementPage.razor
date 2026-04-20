@@ -1,7 +1,7 @@
 @page "/system"
 @using Alife.Components.Elements.Plugin.Manager
 @using Alife.Components.Elements.Utility
-@inject TutorialService TutorialService
+@inject NavigationManager Navigation
 @inject CharacterSystem CharacterSystem
 @inject PluginSystem PluginSystem
 @inject ChatActivitySystem ChatActivitySystem
@@ -27,7 +27,7 @@
                     <div style="padding: 24px; height: 100%; overflow-y: auto; background: #fafafa;">
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
                             <!-- 创建新角色 -->
-                            <div @onclick="@(() => { isCreating = true; TutorialService.NotifyAction("CreateCharacter"); })" style="cursor: pointer;">
+                            <div @onclick="@(() => { isCreating = true; })" style="cursor: pointer;">
                                 <Card id="btn-new-character" Title="创建新角色" Class="character-card-new" Hoverable>
                                     <Flex Direction="@AntDesign.FlexDirection.Vertical" Align="@AntDesign.FlexAlign.Center" Justify="@AntDesign.FlexJustify.Center" Style="height: 120px; color: rgba(0,0,0,0.45)">
                                         <Icon Type="@IconType.Outline.Plus" Style="font-size: 32px" />
@@ -47,10 +47,12 @@
 
             <TabPane Key="2">
                 <TabTemplate>
-                    <Flex Direction="@AntDesign.FlexDirection.Vertical" Align="@AntDesign.FlexAlign.Center" Gap="@("4")">
-                        <Icon Type="@IconType.Outline.AppstoreAdd" />
-                        <span style="font-size: 12px">插件中心</span>
-                    </Flex>
+                    <div id="tab-plugin-center">
+                        <Flex Direction="@AntDesign.FlexDirection.Vertical" Align="@AntDesign.FlexAlign.Center" Gap="@("4")">
+                            <Icon Type="@IconType.Outline.AppstoreAdd" />
+                            <span style="font-size: 12px">插件中心</span>
+                        </Flex>
+                    </div>
                 </TabTemplate>
                 <ChildContent>
                     <div style="height: 100%; overflow: hidden; background: #fafafa;">
@@ -121,8 +123,6 @@
     protected override void OnInitialized()
     {
         CharacterSystem.OnChanged += StateHasChanged;
-        // 自动通知教程：已进入系统页
-        TutorialService.NotifyAction("EnterSystem");
     }
 
     void OnConfirmCreate()
@@ -130,6 +130,9 @@
         if (string.IsNullOrWhiteSpace(newCharacterName)) return;
         CharacterSystem.CreateCharacter(newCharacterName);
         isCreating = false;
+        
+        Navigation.NavigateTo($"/agent/{newCharacterName}");
+        
         newCharacterName = "";
     }
 

@@ -1,4 +1,3 @@
-@inject TutorialService TutorialService
 @inject CharacterSystem CharacterSystem
 @inject ChatActivitySystem ChatActivitySystem
 @implements IDisposable
@@ -13,7 +12,7 @@
     </Tooltip>
 
     <Tooltip Title="@("系统管理")" Placement="Placement.Right">
-        <NavLink href="/system" Class="nav-item-icon" Match="NavLinkMatch.All" ActiveClass="active">
+        <NavLink id="nav-system" href="/system" Class="nav-item-icon" Match="NavLinkMatch.All" ActiveClass="active">
             <Icon Type="@IconType.Outline.Setting" Style="font-size: 24px" />
         </NavLink>
     </Tooltip>
