@@ -22,7 +22,7 @@ public class XmlExecutorContext : XmlContext
 public class XmlStreamExecutor : IAsyncDisposable
 {
     public event Action<string, Exception>? Error;
-    public bool IsIdle => commandChannel.Reader.TryPeek(out _) == false;
+    public bool IsIdle => commandChannel.Reader.TryPeek(out _) == false && lastTask is { IsCompleted: true };
     public void Feed(string text)
     {
         foreach (char ch in text)
@@ -60,6 +60,7 @@ public class XmlStreamExecutor : IAsyncDisposable
     readonly List<StringBuilder> aboveContentBuffer = new();
     readonly StringBuilder contentBuffer = new();
     bool isResetting;
+    Task? lastTask;
 
     public XmlStreamExecutor(XmlStreamParser parser, XmlHandlerTable handler, string[]? sentenceBreakers = null, int minBreakingLength = 0)
     {
@@ -94,15 +95,15 @@ public class XmlStreamExecutor : IAsyncDisposable
                     switch (cmd.Type)
                     {
                         case CommandType.Feed:
-                            await parser.Feed(cmd.Data);
+                            await (lastTask = parser.Feed(cmd.Data));
                             break;
                         case CommandType.Flush:
-                            await parser.Flush();
+                            await (lastTask = parser.Flush());
                             ClearContentBuffer();
                             break;
                         case CommandType.Reset:
                             isResetting = true;
-                            await parser.Flush();
+                            await (lastTask = parser.Flush());
                             ClearContentBuffer();
                             isResetting = false;
                             break;

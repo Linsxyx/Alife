@@ -27,28 +27,18 @@
     </div>
 
     <!-- 详情配置 -->
-    <Tabs DefaultActiveKey="ui">
-        <TabPane Key="ui" Tab="功能配置">
-            <div style="padding-top: 16px;">
-                @if (pluginAttr.ConfigurationUIType != null && typeof(IComponent).IsAssignableFrom(pluginAttr.ConfigurationUIType))
-                {
-                    <DynamicComponent Type="pluginAttr.ConfigurationUIType" Parameters="GetParameters()" />
-                }
-                else
-                {
-                    <Alert Message="此插件使用 JSON 配置" Type="@AlertType.Info" ShowIcon="true" Style="margin-bottom: 16px;" />
-                    <TextArea AutoSize="true" MinRows="10" Style="font-family: monospace;" @bind-Value="jsonConfig" />
-                    <Button Type="@ButtonType.Primary" OnClick="SaveJsonConfig" Style="margin-top: 16px;" Block>保存配置</Button>
-                }
-            </div>
-        </TabPane>
-        @if (Character != null)
+    <div style="padding-top: 16px;">
+        @if (pluginAttr.ConfigurationUIType != null && typeof(IComponent).IsAssignableFrom(pluginAttr.ConfigurationUIType))
         {
-            <TabPane Key="stats" Tab="运行状态">
-                <Empty Description="@("开发中...")" />
-            </TabPane>
+            <DynamicComponent Type="pluginAttr.ConfigurationUIType" Parameters="GetParameters()" />
         }
-    </Tabs>
+        else
+        {
+            <Alert Message="此插件使用 JSON 配置" Type="@AlertType.Info" ShowIcon="true" Style="margin-bottom: 16px;" />
+            <TextArea AutoSize="true" MinRows="10" Style="font-family: monospace;" @bind-Value="jsonConfig" />
+            <Button Type="@ButtonType.Primary" OnClick="SaveJsonConfig" Style="margin-top: 16px;" Block>保存配置</Button>
+        }
+    </div>
 </div>
 
 @code {

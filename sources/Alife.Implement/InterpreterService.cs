@@ -75,9 +75,13 @@ print('Hello World!')
         executor.Error += (tag, exception) => OnError(tag, exception, chatActivity.ChatBot);
         return Task.CompletedTask;
     }
-    
+
     public async ValueTask DisposeAsync()
     {
+        await Task.Run(async () => {
+            while (executor.IsIdle == false)
+                await Task.Yield();
+        });
         await executor.DisposeAsync();
     }
 

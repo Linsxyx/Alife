@@ -66,7 +66,7 @@ else
                     </MenuItem>
                     <MenuItem Key="plugins" OnClick="@(() => activeTab = "plugins")">
                         <Icon Type="@IconType.Outline.Build" />
-                        <span>插件扩展</span>
+                        <span>插件视图</span>
                     </MenuItem>
                 </Menu>
             </div>
@@ -87,8 +87,7 @@ else
         <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fff">
             @if (character != null)
             {
-                @if (activeTab == "info")
-                {
+                <div style="display: @(activeTab == "info" ? "block" : "none"); height: 100%;">
                     <div style="padding: 24px; height: 100%; overflow-y: auto;">
                         <GridRow Gutter="16">
                             <!-- 第一列：状态与控制 -->
@@ -160,9 +159,8 @@ else
                             </Card>
                         }
                     </div>
-                }
-                else if (activeTab == "chat")
-                {
+                </div>
+                <div style="display: @(activeTab == "chat" ? "block" : "none"); height: 100%;">
                     if (activity == null)
                     {
                         <Flex Direction="@AntDesign.FlexDirection.Vertical" Align="@AntDesign.FlexAlign.Center" Justify="@AntDesign.FlexJustify.Center" Style="height: 100%">
@@ -174,13 +172,25 @@ else
                     {
                         <ChatWindowUI ChatBot="@activity.ChatBot" />
                     }
-                }
-                else if (activeTab == "history")
-                {
+                </div>
+                <div style="display: @(activeTab == "history" ? "block" : "none"); height: 100%;">
                     <div style="padding: 24px; height: 100%; overflow-y: auto;">
                         <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 24px;">
                             <Title Level="4" Style="margin: 0;">完整历史与记忆检查</Title>
-                            <Checkbox @bind-Checked="onlyShowKeyMemory">仅看关键记忆存档</Checkbox>
+                            <Space>
+                                <SpaceItem>
+                                    <RadioGroup @bind-Value="historyRoleFilter" Size="@AntDesign.RadioButtonSize.Small">
+                                        <Radio RadioButton Value="@("All")">全部</Radio>
+                                        <Radio RadioButton Value="@("user")">User</Radio>
+                                        <Radio RadioButton Value="@("assistant")">Assistant</Radio>
+                                        <Radio RadioButton Value="@("system")">System</Radio>
+                                        <Radio RadioButton Value="@("tool")">Tool</Radio>
+                                    </RadioGroup>
+                                </SpaceItem>
+                                <SpaceItem>
+                                    <Checkbox @bind-Checked="onlyShowKeyMemory">仅看关键记忆存档</Checkbox>
+                                </SpaceItem>
+                            </Space>
                         </Flex>
 
                         @if (activity != null)
@@ -189,8 +199,8 @@ else
                                 <ListItem>
                                     <ChildContent>
                                         <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
-                                            <div style="font-size: 13px; color: rgba(0,0,0,0.45); font-weight: 500;">
-                                                <AntDesign.Text Strong>@context.Role</AntDesign.Text> 
+                                            <div style="font-size: 13px; color: rgba(0,0,0,0.45); font-weight: 500; display: flex; align-items: center; gap: 8px;">
+                                                <Tag Color="@(GetRoleColor(context.Role.ToString()))" Style="margin: 0;">@context.Role</Tag> 
                                                 @if (!string.IsNullOrWhiteSpace(context.AuthorName)) { <span>@@@context.AuthorName</span> }
                                             </div>
                                             <Paragraph Style="@($"margin: 0; white-space: pre-wrap; padding: 12px; border-radius: 4px; border: 1px solid #f0f0f0; {(IsKeyMemory(context) ? "background: #fffbe6; border-color: #ffe58f;" : "background: #f9f9f9;")}")">
@@ -210,10 +220,8 @@ else
                             <Empty Description="@("启动角色后即可查看当前的对话历史记录喵！")" />
                         }
                     </div>
-                }
-                else if (activeTab == "plugins")
-                {
-                    <div style="height: 100%; overflow: hidden; display: flex; flex-direction: column;">
+                </div>
+                <div style="display: @(activeTab == "plugins" ? "flex" : "none"); height: 100%; flex-direction: column; overflow: hidden;">
                         <div style="padding: 24px 24px 0 24px;">
                             <Title Level="4">活跃插件配置与监控</Title>
                         </div>
@@ -224,8 +232,7 @@ else
                                 IsReadOnly="true" 
                                 PluginFilter="@(id => pluginIDs.Contains(id))" />
                         </div>
-                    </div>
-                }
+                </div>
             }
         </div>
     </div>
@@ -246,6 +253,7 @@ else
     Character? character;
     ChatActivity? activity;
     string activeTab = "info";
+    string historyRoleFilter = "All";
     bool isStarting = false;
     bool isActivating = false;
     bool onlyShowKeyMemory = false;
@@ -286,10 +294,26 @@ else
     IEnumerable<ChatMessageContent> GetFilteredHistory()
     {
         if (activity == null) return Enumerable.Empty<ChatMessageContent>();
-        var history = activity.ChatBot.ChatHistory;
+        var history = activity.ChatBot.ChatHistory.AsEnumerable();
+        if (historyRoleFilter != "All")
+        {
+            history = history.Where(c => c.Role.ToString().Equals(historyRoleFilter, StringComparison.OrdinalIgnoreCase));
+        }
         if (!onlyShowKeyMemory) return history;
         
         return history.Where(IsKeyMemory);
+    }
+
+    string GetRoleColor(string role)
+    {
+        return role.ToLower() switch
+        {
+            "user" => "blue",
+            "assistant" => "green",
+            "system" => "orange",
+            "tool" => "purple",
+            _ => "default"
+        };
     }
 
     bool IsKeyMemory(ChatMessageContent content)
