@@ -7,7 +7,7 @@
     </Extra>
     <ChildContent>
         <Flex Style="justify-content: space-between;align-items: center">
-            <Checkbox Value="Source.AutoActivate" ValueChanged="@((bool v) => { Source.AutoActivate = v; CharacterSystem.SaveCharacter(Source); })">开机自启</Checkbox>
+            <Checkbox Checked="@Source.AutoActivate" CheckedChanged="@((bool v) => { Source.AutoActivate = v; CharacterSystem.SaveCharacter(Source); })">开机自启</Checkbox>
             <Button Danger OnClick="@(OnDelete)">删除</Button>
         </Flex>
     </ChildContent>
