@@ -17,7 +17,7 @@ public class InterpreterService : Plugin
     XmlStreamParser parser = null!;
     XmlStreamExecutor executor = null!;
 
-    public override Task AwakeAsync(AwakeContext context)
+    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
         //创建xml解析执行器等
         handlerTable.Register(this);
@@ -65,11 +65,7 @@ print('Hello World!')
 4. 在结尾使用python区域进行了脚本调用功能。
 ";
 
-        context.contextBuilder.ChatHistory.AddSystemMessage(prompt);
-        return Task.CompletedTask;
-    }
-    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
-    {
+        chatActivity.ChatBot.ChatHistory.AddSystemMessage(prompt);
         chatActivity.ChatBot.ChatReceived += OnChatReceived;
         chatActivity.ChatBot.ChatSent += OnChatSent;
         chatActivity.ChatBot.ChatOver += OnChatOver;

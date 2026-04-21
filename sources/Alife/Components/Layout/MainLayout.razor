@@ -64,35 +64,41 @@
     bool isAutoStarting = false;
     readonly List<(string Name, Exception Ex)> startupErrors = new();
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         if (hasAutoStarted) return;
         hasAutoStarted = true;
 
-        //角色自启动
-        var startingCharacters = CharacterSystem.GetAllCharacters()
-            .Where(c => c.AutoActivate && !ChatActivitySystem.IsActivated(c))
-            .ToList();
+        Task.Run(async () => {
+            //角色自启动
+            var startingCharacters = CharacterSystem.GetAllCharacters()
+                .Where(c => c.AutoActivate && !ChatActivitySystem.IsActivated(c))
+                .ToList();
 
-        if (startingCharacters.Any())
-        {
-            isAutoStarting = true;
-            StateHasChanged();
-
-            foreach (Character character in startingCharacters)
+            if (startingCharacters.Any())
             {
-                try
+                await InvokeAsync(() => {
+                    isAutoStarting = true;
+                    StateHasChanged();
+                });
+                
+                foreach (Character character in startingCharacters)
                 {
-                    await Task.Run(async () => await ChatActivitySystem.Play(character));
+                    try
+                    {
+                        await Task.Run(async () => await ChatActivitySystem.Play(character));
+                    }
+                    catch (Exception e)
+                    {
+                        startupErrors.Add((character.Name, e));
+                    }
                 }
-                catch (Exception e)
-                {
-                    startupErrors.Add((character.Name, e));
-                }
-            }
 
-            isAutoStarting = false;
-            StateHasChanged();
-        }
+                await InvokeAsync(() => {
+                    isAutoStarting = false;
+                    StateHasChanged();
+                });
+            }
+        });
     }
 }
