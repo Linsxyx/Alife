@@ -17,9 +17,10 @@ public class McpPluginConfig
 }
 [Plugin("MCP服务", "让AI可以通过Model Context Protocol接入外部工具。",
     configurationUIType: typeof(McpServiceUI))]
-public class McpService : InteractivePlugin, IConfigurable<McpPluginConfig>
+public class McpService : InteractivePlugin<McpService>, IConfigurable<McpPluginConfig>
 {
-    McpPluginConfig configuration = new();
+    public McpPluginConfig? Configuration { get; set; }
+
     readonly List<McpClient> mcpClients = new();
     readonly List<XmlHandler> xmlHandlers = new();
     readonly InterpreterService interpreterService;
@@ -29,17 +30,15 @@ public class McpService : InteractivePlugin, IConfigurable<McpPluginConfig>
         this.interpreterService = interpreterService;
     }
 
-    public void Configure(McpPluginConfig configuration)
-    {
-        this.configuration = configuration;
-    }
     public override async Task AwakeAsync(AwakeContext context)
     {
-        foreach (McpServerConfig server in configuration.Servers)
+        await base.AwakeAsync(context);
+
+        foreach (McpServerConfig server in Configuration!.Servers)
         {
             (McpClient client, XmlHandler handler) = await McpXmlAdapter.CreateAsync(
                 server,
-                (name, result) => ChatBot.Poke($"[MCP:{server.Name}] <{name}> 执行完成\n{result}"));
+                (name, result) => Poke($"{server.Name}.{name} 执行完成\n{result}"));
 
             mcpClients.Add(client);
             xmlHandlers.Add(handler);
@@ -55,5 +54,7 @@ public class McpService : InteractivePlugin, IConfigurable<McpPluginConfig>
         foreach (McpClient client in mcpClients)
             await client.DisposeAsync();
         mcpClients.Clear();
+
+        await base.DestroyAsync();
     }
 }

@@ -11,9 +11,17 @@ using Microsoft.SemanticKernel;
 
 namespace Alife.Implement;
 
+public partial class VisionService
+{
+    static readonly VisionAnalyzer Analyzer;
+    static VisionService()
+    {
+        Analyzer = new VisionAnalyzer();
+    }
+}
 [Plugin("视觉感知", "让 AI 能够看到屏幕内容，理解图片，观察世界。")]
 [Description("此服务让你拥有视觉感知能力：你可以截取屏幕画面并理解其内容，或者分析用户提供的图片。（注意！分析系统并不准确，所以你需要配合结果，自己洞察出真正的实际情况）")]
-public class VisionService : Plugin
+public partial class VisionService : InteractivePlugin<VisionService>
 {
     /// <summary>
     /// 截取屏幕并进行视觉理解，将结果反馈给 AI。
@@ -25,13 +33,12 @@ public class VisionService : Plugin
         if (context.CallMode != CallMode.OneShot)
             return;
 
-
         string screenshotPath = CaptureScreen();
         Task<string> visionTask = Analyzer.QueryAsync(screenshotPath, query);
         string windowInfo = GetRunningWindowTitles();
         string visionInfo = await visionTask;
 
-        chatBot.Poke($"[VisionService] 窗口信息：{windowInfo}\n视觉分析结果：{visionInfo}");
+        Poke($"窗口信息：{windowInfo}\n视觉分析结果：{visionInfo}");
 
         string GetRunningWindowTitles()
         {
@@ -128,11 +135,11 @@ public class VisionService : Plugin
                 path = await DownloadImageAsync(path);
 
             string result = await Analyzer.QueryAsync(path, query);
-            chatBot.Poke($"[VisionService] 图片分析结果：{result}");
+            Poke($"图片分析结果：{result}");
         }
         catch (Exception ex)
         {
-            chatBot.Poke($"[VisionService] 图片处理失败：{ex.Message}");
+            Poke($"图片处理失败：{ex.Message}");
         }
 
         async Task<string> DownloadImageAsync(string url)
@@ -145,23 +152,11 @@ public class VisionService : Plugin
         }
     }
 
-    static readonly VisionAnalyzer Analyzer;
-    static VisionService()
-    {
-        Analyzer = new VisionAnalyzer();
-    }
-
     readonly HttpClient httpClient = new();
-    ChatBot chatBot = null!;
 
     public VisionService(InterpreterService interpreterService)
     {
         interpreterService.RegisterHandler(this);
-    }
-    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
-    {
-        chatBot = chatActivity.ChatBot;
-        return Task.CompletedTask;
     }
 
     // ─────────────────────── Win32 PInvoke ───────────────────────

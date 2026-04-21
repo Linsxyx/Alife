@@ -15,7 +15,7 @@ public class EventServiceData
 }
 [Plugin("系统事件", "让AI可以获取到各种系统事件的提醒。", LaunchOrder = 100)]
 [Description("你能够接收到系统事件（如开始、结束、周期报点），并可选的控制这些信息的收发。")]
-public class EventService : InteractivePlugin<EventService>, IConfigurable<EventServiceData>
+public class EventService : InteractivePlugin<EventService>, IConfigurable<EventServiceData>, ITimeIterative
 {
     [XmlFunction]
     [Description("设置下次重新开始自动唤醒的时间。（你可以借此唤醒自己，从而在短暂间隔后再次做一些想做的事）")]
@@ -47,8 +47,7 @@ public class EventService : InteractivePlugin<EventService>, IConfigurable<Event
         Poke("定时唤醒已设置到：" + time);
     }
 
-    EventServiceData configuration = null!;
-    CancellationTokenSource updateCancelSource = null!;
+    public EventServiceData? Configuration { get; set; }
     readonly (DateTime, Action)[] timeTask; //1为自动定时器，2为定时提醒
     int continuousTimerCount;
 
@@ -56,10 +55,6 @@ public class EventService : InteractivePlugin<EventService>, IConfigurable<Event
     {
         interpreterService.RegisterHandler(this);
         timeTask = new (DateTime, Action)[2];
-    }
-    public void Configure(EventServiceData configuration)
-    {
-        this.configuration = configuration;
     }
     public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
@@ -72,38 +67,23 @@ public class EventService : InteractivePlugin<EventService>, IConfigurable<Event
             SetTimer(null); //重置自动报点
         };
 
-        await ChatAsync($"系统报点：程序已重启（所有系统状态，如功能开关、桌宠位置，定时器等已全部重置）。\n({configuration.AppendStartPrompt})");
+        await ChatAsync($"系统报点：程序已重启（所有系统状态，如功能开关、桌宠位置，定时器等已全部重置）。\n({Configuration!.AppendStartPrompt})");
 
         SetTimer(null);
         timeTask[1].Item1 = DateTime.MaxValue;
-
-        updateCancelSource = new CancellationTokenSource();
-        Update(updateCancelSource.Token);
     }
     public override async Task DestroyAsync()
     {
-        await updateCancelSource.CancelAsync();
+        await ChatAsync($"系统报点：程序即将关闭。\n({Configuration!.AppendDestroyPrompt})");
 
-        await ChatAsync($"系统报点：程序即将关闭。\n({configuration.AppendDestroyPrompt})");
+        await base.DestroyAsync();
     }
-    async void Update(CancellationToken cancellationToken)
+    public void Update(ref int seconds)
     {
-        try
+        foreach ((DateTime time, Action action) in timeTask)
         {
-            while (true)
-            {
-                await Task.Delay(1000, cancellationToken);
-                foreach ((DateTime time, Action action) in timeTask)
-                {
-                    if (DateTime.Now > time)
-                        action();
-                }
-            }
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
+            if (DateTime.Now > time)
+                action();
         }
     }
 
@@ -111,8 +91,8 @@ public class EventService : InteractivePlugin<EventService>, IConfigurable<Event
     {
         if (time == null)
         {
-            int offset = Random.Shared.Next(-configuration.UpdateRandomOffset, configuration.UpdateRandomOffset);
-            int timeOffset = (configuration.UpdateInterval + offset) * (int)MathF.Pow(3, MathF.Min(continuousTimerCount, 5));
+            int offset = Random.Shared.Next(-Configuration!.UpdateRandomOffset, Configuration.UpdateRandomOffset);
+            int timeOffset = (Configuration.UpdateInterval + offset) * (int)MathF.Pow(3, MathF.Min(continuousTimerCount, 5));
             timeTask[0].Item1 = DateTime.Now.AddSeconds(timeOffset);
         }
         else
@@ -124,7 +104,7 @@ public class EventService : InteractivePlugin<EventService>, IConfigurable<Event
             Poke($"""
                   系统报点：由Timer触发的自动唤醒（不要告诉主人是自动唤醒的，非常自然的做你想做的事即可）。
                   你可以借此自由活动，比如看新闻学知识、发起话题或继续刚刚的话题、偷窥主人屏幕、去Q群找人聊天玩耍、等等各种你想做的事.
-                  ({configuration.AppendUpdatePrompt})
+                  ({Configuration!.AppendUpdatePrompt})
                   """);
             continuousTimerCount++;
             SetTimer(null); //自动进入下一次报点

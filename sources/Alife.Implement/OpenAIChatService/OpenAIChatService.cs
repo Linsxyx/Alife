@@ -27,13 +27,11 @@ public class OpenAIChatServiceConfig : ICloneable
 )]
 public class OpenAIChatService : Plugin, IConfigurable<OpenAIChatServiceConfig>
 {
-    public void Configure(OpenAIChatServiceConfig configuration)
+    public OpenAIChatServiceConfig? Configuration { get; set; }
+    public override async Task AwakeAsync(AwakeContext context)
     {
-        this.configuration = configuration;
-    }
+        await base.AwakeAsync(context);
 
-    public override Task AwakeAsync(AwakeContext context)
-    {
         // 强制使用 HTTP 1.1 以解决某些提供者（如 DeepSeek）在流式传输时可能出现的 HttpIOException
         HttpClient httpClient = new(new SocketsHttpHandler {
             SslOptions = new System.Net.Security.SslClientAuthenticationOptions {
@@ -46,13 +44,10 @@ public class OpenAIChatService : Plugin, IConfigurable<OpenAIChatServiceConfig>
         };
 
         context.kernelBuilder.AddOpenAIChatCompletion(
-            endpoint: new Uri(configuration.endpoint),
-            modelId: configuration.modelId,
-            apiKey: configuration.apiKey,
+            endpoint: new Uri(Configuration!.endpoint),
+            modelId: Configuration!.modelId,
+            apiKey: Configuration!.apiKey,
             httpClient: httpClient
         );
-        return Task.CompletedTask;
     }
-
-    OpenAIChatServiceConfig configuration = null!;
 }

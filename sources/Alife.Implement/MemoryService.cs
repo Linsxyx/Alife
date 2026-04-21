@@ -10,13 +10,21 @@ using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Implement;
 
+public partial class MemoryService
+{
+    static readonly TextVectorizer TextVectorizer;
+    static MemoryService()
+    {
+        TextVectorizer = new TextVectorizer();
+    }
+}
 public record MemoryConfig
 {
-    public int Threshold { get; set; } = 40;
-    public int BatchSize { get; set; } = 20;
+    public int Threshold { get; init; } = 40;
+    public int BatchSize { get; init; } = 20;
 }
 [Plugin("记忆服务", "自动管理和分层压缩对话记忆，提供长期记忆检索能力。", LaunchOrder = -100)]
-public class MemoryService : Plugin, IConfigurable<MemoryConfig>
+public partial class MemoryService : InteractivePlugin<MemoryService>, IConfigurable<MemoryConfig>
 {
     [XmlFunction]
     [Description("读取记忆存档的完整内容。")]
@@ -26,9 +34,9 @@ public class MemoryService : Plugin, IConfigurable<MemoryConfig>
             return;
 
         string? memory = await memoryManager.ReadMemory(index);
-        chatBot.Poke(memory != null
-            ? $"[{nameof(MemoryService)}] 读取完整记忆如下：\n{memory}"
-            : $"[{nameof(MemoryService)}] 未找到记忆记录");
+        Poke(memory != null
+            ? $"读取完整记忆如下：\n{memory}"
+            : "未找到记忆记录");
     }
     [XmlFunction]
     [Description($"在归档的记忆记录中搜索内容（搜索到的结果是存储索引，你需要用 {nameof(Recall)} 打开）。")]
@@ -48,7 +56,7 @@ public class MemoryService : Plugin, IConfigurable<MemoryConfig>
         List<SearchResult> results = await memoryManager.SearchMemory(query, count, startTime, endTime);
 
         StringBuilder stringBuilder = new();
-        stringBuilder.AppendLine($"[{nameof(MemoryService)}] “{query}”的搜索结果如下：");
+        stringBuilder.AppendLine($"{query}”的搜索结果如下：");
         for (int index = 0; index < results.Count; index++)
         {
             SearchResult searchResult = results[index];
@@ -61,69 +69,46 @@ public class MemoryService : Plugin, IConfigurable<MemoryConfig>
                  事件概述：```{searchResult.Summary}```
                  """);
         }
-        chatBot.Poke(stringBuilder.ToString());
+        Poke(stringBuilder.ToString());
     }
 
-    static readonly TextVectorizer TextVectorizer;
-    static MemoryService()
-    {
-        TextVectorizer = new TextVectorizer();
-    }
-
+    public MemoryConfig? Configuration { get; set; }
     MemoryManager memoryManager = null!;
-    ChatBot chatBot = null!;
-    ChatHistory chatHistory = null!;
-    MemoryConfig config = null!;
-
-    public void Configure(MemoryConfig configuration)
-    {
-        config = configuration;
-    }
 
     public MemoryService(InterpreterService interpreterService)
     {
         interpreterService.RegisterHandler(this);
     }
-
-    public override Task AwakeAsync(AwakeContext context)
+    public override async Task AwakeAsync(AwakeContext context)
     {
-        context.contextBuilder.ChatHistory.AddSystemMessage(
-            $"""
-             [{nameof(MemoryService)}] 
+        await base.AwakeAsync(context);
 
-             ## 上下文压缩
+        Prompt($"""
+                上下文压缩说明：
+                有时你会收到关于上下文压缩的提示，它会给予你一段过往时间的聊天记录或记忆存档。这些内容是即将移出上下文的内容，所以需要你用第一人称简述一下发生的事情，方便日后回忆。
 
-             有时你会收到关于上下文压缩的提示，它会给予你一段过往时间的聊天记录或记忆存档。这些内容是即将移出上下文的内容，所以需要你用第一人称简述一下发生的事情，方便日后回忆。
-
-             注意！描述事情时，你要遵守如下规则：
-             1. 按重要程度进行信息舍取，注意简洁。
-             2. 多事件时注意按时间段区分。
-             3. 保持对一些关键数据的记录。
-             4. 系统会自动生成存档信息，所以你不用负责添加系统信息，直接像讲故事一样描述概述内容即可。
-             5. 分清事件中的具体人物，不要用‘你’这种代词。
-             6. 不要回复无关事件描述的内容，如不要开头回复‘好的’。
-             """);
-
-        return Task.CompletedTask;
+                注意！描述事情时，你要遵守如下规则：
+                1. 按重要程度进行信息舍取，注意简洁。
+                2. 多事件时注意按时间段区分。
+                3. 保持对一些关键数据的记录。
+                4. 系统会自动生成存档信息，所以你不用负责添加系统信息，直接像讲故事一样描述概述内容即可。
+                5. 分清事件中的具体人物，不要用‘你’这种代词。
+                6. 不要回复无关事件描述的内容，如不要开头回复‘好的’。
+                """);
     }
-
-    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
+    public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
-        chatBot = chatActivity.ChatBot;
-        chatHistory = chatBot.ChatHistory;
+        await base.StartAsync(kernel, chatActivity);
 
-        //每次对话后检测压缩
-        chatBot.ChatHistoryAdd += OnChatHistoryAdd;
+        ChatBot.ChatHistoryAdd += OnChatHistoryAdd; //每次对话后检测压缩
 
         //初始化向量化器和感知人设的压缩器
         string storagePath = Path.Combine(AlifePath.StorageFolderPath, chatActivity.Character.StorageKey, "Memory");
-        AlifeTextCompressor compressor = new(kernel.GetRequiredService<IChatCompletionService>(), chatHistory);
-        memoryManager = new MemoryManager(compressor, TextVectorizer, storagePath, config.Threshold, config.BatchSize);
+        AlifeTextCompressor compressor = new(kernel.GetRequiredService<IChatCompletionService>(), ChatHistory);
+        memoryManager = new MemoryManager(compressor, TextVectorizer, storagePath, Configuration!.Threshold, Configuration!.BatchSize);
 
         //加载历史记忆
-        memoryManager.LoadHistory(chatHistory);
-
-        return Task.CompletedTask;
+        memoryManager.LoadHistory(ChatHistory);
     }
 
     async void OnChatHistoryAdd(ChatMessageContent content)
@@ -133,11 +118,11 @@ public class MemoryService : Plugin, IConfigurable<MemoryConfig>
             if (content.Role != AuthorRole.Assistant)
                 return; //只在ai说话后整理，这样对话更完整
 
-            await chatBot.ChatSemaphore.WaitAsync();
-            memoryManager.SaveHistory(chatHistory);
-            if (await memoryManager.Filter(chatHistory))
-                chatBot.UpdateHistoryEndIndex();
-            chatBot.ChatSemaphore.Release();
+            await ChatBot.ChatSemaphore.WaitAsync();
+            memoryManager.SaveHistory(ChatHistory);
+            if (await memoryManager.Filter(ChatHistory))
+                ChatBot.UpdateHistoryEndIndex();
+            ChatBot.ChatSemaphore.Release();
         }
         catch (Exception e)
         {

@@ -1,5 +1,7 @@
 <Tree TItem="object" Checkable="@(!IsReadOnly)" OnCheck="OnCheck" DefaultExpandedKeys="@([Context.Name])"
-      DefaultCheckedKeys="@(IsChecking.ToArray())">
+      DefaultCheckedKeys="@(IsChecking.ToArray())"
+      Draggable="@(!IsReadOnly)" OnDrop="OnDrop"
+      BlockNode>
     <TitleTemplate>
         <Text>@(context.DataItem is StringFolder ? context.Title : ItemTitleFilter(context.Title))</Text>
     </TitleTemplate>
@@ -23,8 +25,7 @@
         base.OnInitialized();
 
         folderFragmentUI = context => {
-            return @<TreeNode Title="@(context.Name)" Key="@(context.Name)" DataItem="@((object)context)"
-                              Checked="@(context.Strings.Count == 0)">
+            return @<TreeNode Title="@(context.Name)" Key="@(context.Name)" DataItem="@((object)context)">
                 @foreach (StringFolder folder in context.Folders)
                 {
                     @(folderFragmentUI(folder))
@@ -35,6 +36,30 @@
                 }
             </TreeNode>;
         };
+    }
+
+    void OnDrop(TreeEventArgs<object> obj)
+    {
+        if (IsReadOnly) return;
+        if (obj.TargetNode.DataItem is not StringFolder targetContainer)
+            return;
+
+        StringFolder? sourceContainer = obj.Node.GetParentNode()?.DataItem as StringFolder;
+        if (sourceContainer == null)
+            return;
+
+        if (obj.Node.DataItem is StringFolder pluginFolder)
+        {
+            sourceContainer.Folders.Remove(pluginFolder);
+            targetContainer.Folders.Add(pluginFolder);
+        }
+        else if (obj.Node.DataItem is string item)
+        {
+            sourceContainer.Strings.Remove(item);
+            targetContainer.Strings.Add(item);
+        }
+
+        StateHasChanged();
     }
 
     void OnCheck(TreeEventArgs<object> obj)

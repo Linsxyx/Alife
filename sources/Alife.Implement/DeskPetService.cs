@@ -9,7 +9,7 @@ namespace Alife.Implement;
 
 [Plugin("Live2D桌宠", "将Live2D桌宠接入AI系统，实现表现力同步和互动反馈。")]
 [Description("此服务让你获得控制Live2D桌宠以及接收其交互的能力")]
-public class DeskPetService : Plugin, IAsyncDisposable
+public class DeskPetService : InteractivePlugin<DeskPetService>, IAsyncDisposable
 {
     [XmlFunction("say")]
     [Description("发送消息：显示一段文本字幕。示例: <say>你好</say>")]
@@ -84,16 +84,15 @@ public class DeskPetService : Plugin, IAsyncDisposable
         try
         {
             (double x, double y) = await client.GetPositionAsync();
-            chatBot.Poke($"[DeskPetService] 当前位置: x={x}, y={y}");
+            Poke($"当前位置: x={x}, y={y}");
         }
         catch (TimeoutException)
         {
-            chatBot.Poke("[DeskPetService] 获取坐标超时");
+            Poke("获取坐标超时");
         }
     }
 
     readonly InterpreterService interpreterService;
-    ChatBot chatBot = null!;
     PetServer client = null!;
     long lastBubbleEndTime;
 
@@ -107,33 +106,32 @@ public class DeskPetService : Plugin, IAsyncDisposable
         interpreterService.UnregisterHandler(this);
         await client.DisposeAsync();
     }
-    public override Task AwakeAsync(AwakeContext context)
+    public override async Task AwakeAsync(AwakeContext context)
     {
+        await base.AwakeAsync(context);
+
         client = new PetServer("Mao/Mao.model3.json");
         string supportedExpressionsDescription = string.Join(", ", client.SupportedExpressions);
         string supportedMotionsDescription = string.Join(", ", client.SupportedMotions.Keys);
-        context.contextBuilder.ChatHistory.AddSystemMessage(
-            $"""
-             # DeskPetService 补充信息
 
-             ## 表情动作
-                - 支持的 exp（表情）：{supportedExpressionsDescription}
-                - 支持的 mtn（动作）：{supportedMotionsDescription}
-                - 注意：如果要发送表情动作，一定要在说话之前，因为说话时会阻塞线程！
-                
-             ## 位置移动
-                - 当前屏幕分辨率：{AlifeDevice.GetResolution()}
-                - 注意：移动是相对移动，如果要进行绝对移动，必须先确认自身位置！
-                - 提示：可以用随机的相对移动，模拟出一些特殊反馈，比如假装跳舞。
-             """);
-        return Task.CompletedTask;
+        Prompt($"""
+                补充信息：
+                ## 表情动作
+                   - 支持的 exp（表情）：{supportedExpressionsDescription}
+                   - 支持的 mtn（动作）：{supportedMotionsDescription}
+                   - 注意：如果要发送表情动作，一定要在说话之前，因为说话时会阻塞线程！
+                ## 位置移动
+                   - 当前屏幕分辨率：{AlifeDevice.GetResolution()}
+                   - 注意：移动是相对移动，如果要进行绝对移动，必须先确认自身位置！
+                   - 提示：可以用随机的相对移动，模拟出一些特殊反馈，比如假装跳舞。
+                """);
     }
     public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
-        chatBot = chatActivity.ChatBot;
+        await base.StartAsync(kernel, chatActivity);
 
         await client.WaitReadyAsync();
-        client.OnInput += text => chatBot.Chat("[DeskPetService] " + text);
-        client.OnInteracted += text => chatBot.Poke("[DeskPetService] (交互: " + text + ")");
+        client.OnInput += text => Chat(text);
+        client.OnInteracted += text => Poke("交互：" + text);
     }
 }

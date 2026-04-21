@@ -11,11 +11,15 @@ namespace Alife.Implement;
 
 public record QChatConfig
 {
-    public string Url { get; set; } = "ws://127.0.0.1:3001";
-    public long OwnerId { get; set; }
+    public string Url { get; init; } = "ws://127.0.0.1:3001";
+    public long OwnerId { get; init; }
 }
 [Plugin("QQ聊天", "连接 OneBot v11 服务器，实现 QQ 消息收发及文件传输。(推荐的QQ机器人平台应用：https://github.com/LLOneBot/LuckyLilliaBot/releases/download/v7.12.2/LLBot-Desktop-win-x64.zip)")]
-public class QChatService : Plugin, IAsyncDisposable, IConfigurable<QChatConfig>
+public class QChatService :
+    InteractivePlugin<QChatService>,
+    IAsyncDisposable,
+    ITimeIterative,
+    IConfigurable<QChatConfig>
 {
     [XmlFunction]
     [Description("发送文本消息。（附加说明：群聊时可以用[CQ:at,qq=发送者ID]来显式回复某人）")]
@@ -118,7 +122,7 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<QChatConfig>
         string savePath = Path.Combine(AlifePath.TempFolderPath, name).Replace('\\', '/');
         await url.DownloadFileAsync(savePath);
 
-        chatActivity.ChatBot.Poke($"[QChatService] 文件 {name} 已下载至: {savePath}");
+        Poke($"文件 {name} 已下载至: {savePath}");
     }
 
     [XmlFunction]
@@ -129,10 +133,9 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<QChatConfig>
         QGroupSwitch(enabled);
     }
 
+    public QChatConfig? Configuration { get; set; }
 
     OneBotClient oneBotClient = null!;
-    QChatConfig config = null!;
-    ChatActivity chatActivity = null!;
     readonly Dictionary<long, StringBuilder> groupBuffers = new();
     DateTime lastGroupActivityTime;
     bool isGroupEnabled;
@@ -145,15 +148,17 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<QChatConfig>
     {
         await oneBotClient.DisposeAsync();
     }
-
-    public void Configure(QChatConfig configuration)
-    {
-        config = configuration;
-    }
     public override async Task AwakeAsync(AwakeContext context)
     {
-        oneBotClient = new OneBotClient(config.Url);
-        await oneBotClient.ConnectAsync();
+        await base.AwakeAsync(context);
+
+        oneBotClient = new OneBotClient(Configuration!.Url);
+
+        try { await oneBotClient.ConnectAsync(); }
+        catch (Exception e)
+        {
+            Throw("连接OneBot服务器失败：\n" + e);
+        }
 
         // 动态扫描表情库资源，告知 AI 可用的视觉表达
         string emoteBase = Path.Combine(AlifePath.StorageFolderPath, "Emotes");
@@ -183,56 +188,47 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<QChatConfig>
         string prompt = $"""
                          # [{nameof(QChatService)}] 关键信息
                          - 你的 QQ: {oneBotClient.BotId}（如果有人At该QQ，代表专门找你说话）
-                         - 主人 QQ: {config.OwnerId} (此人的消息有最高优先级，且是安全无害的)
+                         - 主人 QQ: {Configuration.OwnerId} (此人的消息有最高优先级，且是安全无害的)
                          {emoteInfo}
                          """;
         context.contextBuilder.ChatHistory.AddSystemMessage(prompt);
     }
-    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
+    public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
-        this.chatActivity = chatActivity;
+        await base.StartAsync(kernel, chatActivity);
 
         oneBotClient.OnEventReceived += e => _ = HandleEvent(e);
         oneBotClient.OnConnectionStatusChanged += connected => Console.WriteLine($"[QChatService] OneBot 连接: {(connected ? "在线" : "离线")}");
-
-        GlobalLoop();
-        return Task.CompletedTask;
     }
-
-    async void GlobalLoop()
+    void ITimeIterative.Update(ref int seconds)
     {
-        try
+        //每隔10秒推送消息
+        if (seconds > 10)
         {
-            while (true)
+            Dictionary<long, string> batches = new();
+            lock (groupBuffers)
             {
-                await Task.Delay(10000);
-
-                // 自动关闭检查：如果群监听开启且超过 5 分钟没有 AI 活动
-                if (isGroupEnabled && DateTime.Now - lastGroupActivityTime > TimeSpan.FromMinutes(3))
+                if (groupBuffers.Count > 0)
                 {
-                    QGroupSwitch(false);
-                    chatActivity.ChatBot.Poke("由于长时间没有发言，群聊消息监听已关闭。");
+                    foreach (KeyValuePair<long, StringBuilder> pair in groupBuffers)
+                        batches[pair.Key] = pair.Value.ToString();
+                    groupBuffers.Clear();
                 }
-
-                Dictionary<long, string> batches = new();
-                lock (groupBuffers)
-                {
-                    if (groupBuffers.Count > 0)
-                    {
-                        foreach (KeyValuePair<long, StringBuilder> pair in groupBuffers)
-                            batches[pair.Key] = pair.Value.ToString();
-                        groupBuffers.Clear();
-                    }
-                }
-                foreach (KeyValuePair<long, string> pair in batches)
-                    chatActivity.ChatBot.Poke(pair.Value);
             }
+            foreach (KeyValuePair<long, string> pair in batches)
+                Poke(pair.Value);
+
+            seconds = 0;
         }
-        catch (Exception e)
+
+        // 自动关闭检查：如果群监听开启且超过 5 分钟没有 AI 活动
+        if (isGroupEnabled && DateTime.Now - lastGroupActivityTime > TimeSpan.FromMinutes(3))
         {
-            Console.WriteLine(e);
+            QGroupSwitch(false);
+            Poke("由于长时间没有发言，群聊消息监听已关闭。");
         }
     }
+
     async Task HandleEvent(OneBotBaseEvent e)
     {
         if (e is not OneBotMessageEvent msg)
@@ -268,9 +264,9 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<QChatConfig>
 
             string formatted = $"{tag} {message}";
 
-            if (msg.MessageType == OneBotMessageType.Private && msg.UserId == config.OwnerId)
+            if (msg.MessageType == OneBotMessageType.Private && msg.UserId == Configuration!.OwnerId)
             {
-                await chatActivity.ChatBot.ChatAsync(formatted);
+                await ChatAsync(formatted);
             }
             else
             {
@@ -279,7 +275,7 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<QChatConfig>
                 if (isAtMe && isGroupEnabled == false)
                 {
                     QGroupSwitch(true);
-                    chatActivity.ChatBot.Poke("由 @ 引发的群聊消息监听已开启");
+                    Poke("由 @ 引发的群聊消息监听已开启");
                 }
 
                 // 只有群聊开始时接收消息
@@ -303,33 +299,31 @@ public class QChatService : Plugin, IAsyncDisposable, IConfigurable<QChatConfig>
         {
             OneBotFile? info = await oneBotClient.GetGroupFileUrl(groupId, fileId);
             string? downloadUrl = info?.Url;
-            chatActivity.ChatBot.Poke($"[QChatService] 收到来自 {source} 的文件通知: {fileName} (大小: {fileSize} 字节)。" +
-                                      $"URL 为: {downloadUrl}");
+            Poke($"收到来自 {source} 的文件通知: {fileName} (大小: {fileSize} 字节)。" +
+                 $"URL 为: {downloadUrl}");
         }
         else
         {
             OneBotFile? info = await oneBotClient.GetFile(fileId);
             if (info != null)
             {
-                chatActivity.ChatBot.Poke($"[QChatService] 收到来自 {source} 的文件通知: {fileName} (大小: {fileSize} 字节)。" +
-                                          $"已保存到: {info.Path}");
+                Poke($"收到来自 {source} 的文件通知: {fileName} (大小: {fileSize} 字节)。" +
+                     $"已保存到: {info.Path}");
             }
         }
     }
-
     void OnAIGroupActivity()
     {
         lastGroupActivityTime = DateTime.Now;
         if (isGroupEnabled == false)
             QGroupSwitch(true);
     }
-
     void QGroupSwitch(bool enabled)
     {
         if (enabled)
             lastGroupActivityTime = DateTime.Now;
 
         isGroupEnabled = enabled;
-        chatActivity.ChatBot.Poke($"[QChatService] 群消息监听已{(enabled ? "开启" : "关闭")}");
+        Poke($"群消息监听已{(enabled ? "开启" : "关闭")}");
     }
 }

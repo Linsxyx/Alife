@@ -34,9 +34,8 @@
         }
         else
         {
-            <Alert Message="此插件使用 JSON 配置" Type="@AlertType.Info" ShowIcon="true" Style="margin-bottom: 16px;" />
-            <TextArea AutoSize="true" MinRows="10" Style="font-family: monospace;" @bind-Value="jsonConfig" />
-            <Button Type="@ButtonType.Primary" OnClick="SaveJsonConfig" Style="margin-top: 16px;" Block>保存配置</Button>
+            <TextArea AutoSize="true" MinRows="10" Style="font-family: monospace;" @bind-Value="jsonConfig" Disabled="@IsReadOnly" />
+            <Button Type="@ButtonType.Primary" OnClick="SaveJsonConfig" Style="margin-top: 16px;" Block Disabled="@IsReadOnly">保存配置</Button>
         }
     </div>
 </div>
@@ -45,6 +44,7 @@
     [Parameter] public Type PluginType { get; set; } = null!;
     [Parameter] public Character? Character { get; set; }
     [Parameter] public ChatActivity? ChatActivity { get; set; }
+    [Parameter] public bool IsReadOnly { get; set; }
 
     private PluginAttribute PluginAttr => PluginType.GetCustomAttribute<PluginAttribute>()!;
     private string jsonConfig = "{}";
@@ -74,6 +74,11 @@
             if (ChatActivity != null && HasParameter(PluginAttr.ConfigurationUIType, "ChatActivity"))
             {
                 parameters.Add("ChatActivity", ChatActivity);
+            }
+
+            if (HasParameter(PluginAttr.ConfigurationUIType, "IsReadOnly"))
+            {
+                parameters.Add("IsReadOnly", IsReadOnly);
             }
         }
 

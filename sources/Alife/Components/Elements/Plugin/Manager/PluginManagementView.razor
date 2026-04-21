@@ -10,7 +10,7 @@
         <div style="flex: 1; overflow-y: auto; padding: 12px 8px; background: #fff; min-height: 0;">
             <PluginFolderUI 
                 Context="@PluginSystem.GetPluginFolder()" 
-                IsReadOnly="@IsReadOnly" 
+                IsReadOnly="false" 
                 PluginFilter="@PluginFilter"
                 OnPluginSelected="HandleSelection" />
         </div>
@@ -24,7 +24,8 @@
                 <PluginDetailView 
                     PluginType="@selectedPluginType" 
                     Character="@Character" 
-                    ChatActivity="@ChatActivity" />
+                    ChatActivity="@ChatActivity"
+                    IsReadOnly="@IsReadOnly" />
             </div>
         }
         else

@@ -262,7 +262,7 @@ else
                         <PluginManagementView
                             Character="@character"
                             ChatActivity="@activity"
-                            IsReadOnly="true"
+                            IsReadOnly="@(activity != null)"
                             PluginFilter="@(id => pluginIDs.Contains(id))"/>
                     </div>
                 </div>

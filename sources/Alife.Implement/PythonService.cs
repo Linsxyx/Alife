@@ -4,14 +4,10 @@ using System.Diagnostics;
 using System.Text;
 using Alife.Framework;
 using Alife.Function.Interpreter;
-using Microsoft.SemanticKernel;
 
 namespace Alife.Implement;
 
-[Plugin("Python工具", "借助Python，让AI几乎可以执行任何任务！")]
-[Description(@"此服务能让你获得执行python的能力，可用于文件管理、设备控制、网页爬取等各自复杂的自定义需求。
-如果缺少环境你还可以利用`subprocess.check_call([sys.executable, ""-m"", ""pip"", ""install"", package_name])`来安装环境。")]
-public class PythonService : Plugin
+public partial class PythonService
 {
     public static async Task<string> Python(string path, int timeout = 30)
     {
@@ -56,6 +52,16 @@ public class PythonService : Plugin
         }
     }
 
+    static PythonService()
+    {
+        AlifeCommand.EnsureInitialized();
+    }
+}
+[Plugin("Python工具", "借助Python，让AI几乎可以执行任何任务！")]
+[Description(@"此服务能让你获得执行python的能力，可用于文件管理、设备控制、网页爬取等各自复杂的自定义需求。
+如果缺少环境你还可以利用`subprocess.check_call([sys.executable, ""-m"", ""pip"", ""install"", package_name])`来安装环境。")]
+public partial class PythonService : InteractivePlugin<PythonService>
+{
     [XmlFunction]
     [Description(@"执行python脚本（使用后需要等待系统响应，所以只能放句尾使用）。
 注意事项：
@@ -70,24 +76,11 @@ public class PythonService : Plugin
         await File.WriteAllTextAsync(filePath, context.FullContent.Trim());
 
         string result = await Python(filePath, timeout);
-        chatBot.Poke("[PythonService] 脚本执行完成\n" + result);
+        Poke("脚本执行完成\n" + result);
     }
-
-    static PythonService()
-    {
-        AlifeCommand.EnsureInitialized();
-    }
-
-    ChatBot chatBot = null!;
 
     public PythonService(InterpreterService interpreterService)
     {
         interpreterService.RegisterHandler(this);
-    }
-
-    public override Task StartAsync(Kernel kernel, ChatActivity chatActivity)
-    {
-        chatBot = chatActivity.ChatBot;
-        return Task.CompletedTask;
     }
 }
