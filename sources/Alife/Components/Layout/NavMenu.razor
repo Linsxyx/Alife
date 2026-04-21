@@ -1,5 +1,7 @@
+@using Alife.Components.Services
 @inject CharacterSystem CharacterSystem
 @inject ChatActivitySystem ChatActivitySystem
+@inject ActivityNotifyService ActivityNotifyService
 @implements IDisposable
 
 <Flex Direction="FlexDirection.Vertical" Gap="@("12")" Style="width: 100%; align-items: center;">
@@ -82,6 +84,7 @@
     protected override void OnInitialized()
     {
         CharacterSystem.OnChanged += Refresh;
+        ActivityNotifyService.OnChanged += Refresh;
     }
 
     void Refresh() => InvokeAsync(StateHasChanged);
@@ -89,5 +92,6 @@
     public void Dispose()
     {
         CharacterSystem.OnChanged -= Refresh;
+        ActivityNotifyService.OnChanged -= Refresh;
     }
 }

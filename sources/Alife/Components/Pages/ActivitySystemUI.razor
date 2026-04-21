@@ -3,6 +3,7 @@
 @using Alife.Components.Services
 @inject ChatActivitySystem ChatActivitySystem
 @inject CharacterSystem CharacterSystem
+@inject ActivityNotifyService ActivityNotifyService
 @inject INotificationService NotificationService
 @inject ModalService ModalService
 
@@ -17,7 +18,7 @@ display: grid;grid-template-columns: repeat(4, 1fr);gap: 10px;align-content: sta
     @foreach (ChatActivity chatActivity in ChatActivitySystem.GetAllChatActivities())
     {
         <ChatActivityUI Context="chatActivity"
-                        Stopped="@(() => ChatActivitySystem.Stop(chatActivity.Character))"></ChatActivityUI>
+                        Stopped="@(async () => { await ChatActivitySystem.Stop(chatActivity.Character); ActivityNotifyService.NotifyChanged(); })"></ChatActivityUI>
     }
 </div>
 
@@ -57,6 +58,7 @@ display: grid;grid-template-columns: repeat(4, 1fr);gap: 10px;align-content: sta
             });
             await ChatActivitySystem.Play(character, progress);
             ChatUIState.EnsureAllHooked(ChatActivitySystem);
+            ActivityNotifyService.NotifyChanged();
         }
         catch (Exception e)
         {

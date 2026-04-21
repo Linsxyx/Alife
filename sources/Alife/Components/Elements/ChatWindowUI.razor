@@ -128,15 +128,15 @@
         ChatUIState.OnUIMessageSent -= OnUIMessageSent;
     }
 
-    void OnUIMessageChanged(Character source)
+    void OnUIMessageChanged(string name)
     {
-        if (source == Activity.Character)
+        if (name == Activity.Character.Name)
             InvokeAsync(StateHasChanged);
     }
 
-    void OnUIMessageSent(Character source)
+    void OnUIMessageSent(string name)
     {
-        if (source == Activity.Character)
+        if (name == Activity.Character.Name)
             InvokeAsync(() => {
                 StateHasChanged();
                 JsRuntime.InvokeVoidAsync("forceScrollBottom");

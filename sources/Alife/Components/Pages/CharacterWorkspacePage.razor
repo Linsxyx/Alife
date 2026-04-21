@@ -10,6 +10,7 @@
 @using System.Text
 @inject CharacterSystem CharacterSystem
 @inject ChatActivitySystem ChatActivitySystem
+@inject ActivityNotifyService ActivityNotifyService
 @inject PluginSystem PluginSystem
 @inject INotificationService NotificationService
 @inject ModalService ModalService
@@ -260,6 +261,7 @@ else
     protected override void OnInitialized()
     {
         LoadData();
+        ActivityNotifyService.OnChanged += LoadData;
     }
 
     protected override void OnParametersSet()
@@ -278,8 +280,12 @@ else
             pluginIDs.Clear();
             foreach (Type plugin in character.Plugins)
             {
-                if (plugin != null && plugin.FullName != null) 
-                    pluginIDs.Add(plugin.FullName);
+                if (plugin != null) 
+                {
+                    string id = PluginSystem.GetPluginID(plugin);
+                    if (!string.IsNullOrEmpty(id))
+                        pluginIDs.Add(id);
+                }
             }
         }
     }
@@ -353,6 +359,7 @@ else
         {
             await ChatActivitySystem.Play(character);
             ChatUIState.EnsureAllHooked(ChatActivitySystem);
+            ActivityNotifyService.NotifyChanged();
             LoadData();
             activeTab = "chat";
         }
@@ -390,6 +397,7 @@ else
     {
         if (character == null) return;
         await ChatActivitySystem.Stop(character);
+        ActivityNotifyService.NotifyChanged();
         LoadData();
     }
 
@@ -433,5 +441,6 @@ else
 
     public void Dispose()
     {
+        ActivityNotifyService.OnChanged -= LoadData;
     }
 }

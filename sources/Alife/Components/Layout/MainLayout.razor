@@ -5,6 +5,7 @@
 @using Alife.Components.Services
 @inject CharacterSystem CharacterSystem
 @inject ChatActivitySystem ChatActivitySystem
+@inject ActivityNotifyService ActivityNotifyService
 
 <div class="app-container">
     <!-- 第一层 Sider: 全局主导航 -->
@@ -53,6 +54,7 @@
             }
 
             ChatUIState.EnsureAllHooked(ChatActivitySystem);
+            ActivityNotifyService.NotifyChanged();
 
             isAutoStarting = false;
             StateHasChanged();
