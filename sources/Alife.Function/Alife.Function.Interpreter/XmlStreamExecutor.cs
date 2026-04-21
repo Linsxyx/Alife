@@ -111,6 +111,7 @@ public class XmlStreamExecutor : IAsyncDisposable
                 }
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception e)
         {
             Console.WriteLine(e);

@@ -11,7 +11,6 @@ public class ChatActivity : IAsyncDisposable
     public static async Task<ChatActivity> Create(
         Character character,
         ConfigurationSystem configurationSystem,
-        PluginSystem pluginSystem,
         IProgress<(string, float)>? progress = null,
         object[]? appendServices = null)
     {
@@ -129,7 +128,8 @@ public class ChatActivity : IAsyncDisposable
     {
         try
         {
-            await Task.WhenAll(plugins.Select(plugin => plugin.DestroyAsync()));
+            foreach (Plugin plugin in Plugins.Reverse())
+                await plugin.DestroyAsync();
             await chatBot.DisposeAsync();
             await pluginService.DisposeAsync();
             await Task.Delay(1000); //等待一秒让用户反应

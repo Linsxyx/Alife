@@ -21,15 +21,15 @@
         }
         else
         {
-            @foreach (ChatMessage message in messages)
+            @foreach (var message in messages)
             {
-                <div style="display: flex; margin-bottom: 16px; width: 100%; @(message.isUser ? "flex-direction: row-reverse" : "flex-direction: row")">
-                    <div class="chat-bubble @(message.isUser ? "chat-bubble-user" : "chat-bubble-ai")">
+                <div style="display: flex; margin-bottom: 16px; width: 100%; @(message.IsUser ? "flex-direction: row-reverse" : "flex-direction: row")">
+                    <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
                          <Flex Direction="@AntDesign.FlexDirection.Vertical" Gap="@("small")">
                             <AntDesign.Text Style="white-space: pre-wrap; font-size: 15px;">
-                                @message.content
+                                @message.Content
                             </AntDesign.Text>
-                            @if (message.isInputting)
+                            @if (message.IsInputting)
                             {
                                 <AntDesign.Text Style="color: rgba(0,0,0,0.45); font-size: 12px">
                                     输入中
@@ -98,32 +98,20 @@
         }
     }
 </script>
+@using Alife.Components.Services
 @code {
     [Parameter] public ChatActivity Activity { get; set; } = null!;
 
-    public class ChatMessage
-    {
-        public string? content;
-        public bool isUser;
-        public bool isInputting;
-    }
-
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Character, List<ChatMessage>> _botMessages = new();
-
-    List<ChatMessage> messages = default!;
     string inputText = "";
-    ChatMessage? aiMessage;
+    List<ChatMessage> messages = default!;
 
     protected override void OnInitialized()
     {
         base.OnInitialized();
         
-        messages = _botMessages.GetOrCreateValue(Activity.Character);
-        aiMessage = messages.LastOrDefault(m => !m.isUser && m.isInputting);
-
-        Activity.ChatBot.ChatSent += OnChatSent;
-        Activity.ChatBot.ChatReceived += OnChatReceived;
-        Activity.ChatBot.ChatOver += OnChatOver;
+        messages = ChatUIState.GetMessages(Activity);
+        ChatUIState.OnUIMessageChanged += OnUIMessageChanged;
+        ChatUIState.OnUIMessageSent += OnUIMessageSent;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -136,47 +124,28 @@
 
     public void Dispose()
     {
-        Activity.ChatBot.ChatSent -= OnChatSent;
-        Activity.ChatBot.ChatReceived -= OnChatReceived;
-        Activity.ChatBot.ChatOver -= OnChatOver;
+        ChatUIState.OnUIMessageChanged -= OnUIMessageChanged;
+        ChatUIState.OnUIMessageSent -= OnUIMessageSent;
     }
 
-    void OnChatSent(string obj)
+    void OnUIMessageChanged(Character source)
     {
-        ChatMessage userMessage = new() {
-            content = obj, isUser = true
-        };
-        messages.Add(userMessage);
-
-        aiMessage = new() {
-            isUser = false, isInputting = true
-        };
-        messages.Add(aiMessage);
-
-        InvokeAsync(() => {
-            StateHasChanged();
-            JsRuntime.InvokeVoidAsync("forceScrollBottom");
-        });
+        if (source == Activity.Character)
+            InvokeAsync(StateHasChanged);
     }
 
-    void OnChatReceived(string obj)
+    void OnUIMessageSent(Character source)
     {
-        if (aiMessage == null) return;
-        aiMessage.content += obj;
-        InvokeAsync(StateHasChanged);
-    }
-
-    void OnChatOver()
-    {
-        if (aiMessage == null) return;
-        aiMessage.isInputting = false;
-        InvokeAsync(StateHasChanged);
+        if (source == Activity.Character)
+            InvokeAsync(() => {
+                StateHasChanged();
+                JsRuntime.InvokeVoidAsync("forceScrollBottom");
+            });
     }
 
     void OnClear()
     {
-        messages.Clear();
-        aiMessage = null;
+        ChatUIState.ClearMessages(Activity);
         StateHasChanged();
     }
 

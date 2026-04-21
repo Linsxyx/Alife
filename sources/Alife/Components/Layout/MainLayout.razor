@@ -2,6 +2,7 @@
 @using AntDesign
 @using Alife.Framework
 @using Alife.Implement
+@using Alife.Components.Services
 @inject CharacterSystem CharacterSystem
 @inject ChatActivitySystem ChatActivitySystem
 
@@ -50,6 +51,8 @@
             {
                 await ChatActivitySystem.Play(character);
             }
+
+            ChatUIState.EnsureAllHooked(ChatActivitySystem);
 
             isAutoStarting = false;
             StateHasChanged();

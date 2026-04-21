@@ -14,10 +14,9 @@ public class ChatActivitySystem
 
     public async Task Play(Character character, IProgress<(string, float)>? progress = null)
     {
-        ChatActivity chatActivity = await ChatActivity.Create(character, configuration, pluginSystem, progress, [
+        ChatActivity chatActivity = await ChatActivity.Create(character, configuration, progress, [
             configuration,
             storageSystem,
-            pluginSystem
         ]);
         activities.Add(character.Name, chatActivity);
     }
@@ -29,15 +28,13 @@ public class ChatActivitySystem
         activities.Remove(character.Name);
     }
 
-    public ChatActivitySystem(ConfigurationSystem configuration, StorageSystem storageSystem, PluginSystem pluginSystem)
+    public ChatActivitySystem(ConfigurationSystem configuration, StorageSystem storageSystem)
     {
         this.configuration = configuration;
         this.storageSystem = storageSystem;
-        this.pluginSystem = pluginSystem;
     }
 
     readonly ConfigurationSystem configuration;
     readonly StorageSystem storageSystem;
-    readonly PluginSystem pluginSystem;
     readonly Dictionary<string, ChatActivity> activities = new();
 }

@@ -1,5 +1,6 @@
 @page "/activity"
 @using Alife.Components.Elements.Utility
+@using Alife.Components.Services
 @inject ChatActivitySystem ChatActivitySystem
 @inject CharacterSystem CharacterSystem
 @inject INotificationService NotificationService
@@ -55,6 +56,7 @@ display: grid;grid-template-columns: repeat(4, 1fr);gap: 10px;align-content: sta
                 StateHasChanged();
             });
             await ChatActivitySystem.Play(character, progress);
+            ChatUIState.EnsureAllHooked(ChatActivitySystem);
         }
         catch (Exception e)
         {

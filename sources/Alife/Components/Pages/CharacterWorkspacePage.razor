@@ -1,5 +1,6 @@
 @page "/agent/{name}"
 @using Alife.Components.Elements.Utility
+@using Alife.Components.Services
 @using Alife.Components.Elements.Plugin
 @using Alife.Components.Elements.Plugin.Manager
 @using System.Reflection
@@ -351,6 +352,7 @@ else
         try 
         {
             await ChatActivitySystem.Play(character);
+            ChatUIState.EnsureAllHooked(ChatActivitySystem);
             LoadData();
             activeTab = "chat";
         }

@@ -5,7 +5,7 @@ using Microsoft.SemanticKernel;
 namespace Alife.Implement;
 
 [Plugin("XML执行器", "为AI增加一种基于Xml的流式函数执行功能，实现快速实时的交互能力。", launchOrder: -1000)]
-public class InterpreterService : Plugin, IAsyncDisposable
+public class InterpreterService : Plugin
 {
     public void RegisterHandler(object handler) => handlerTable.Register(handler);
     public void UnregisterHandler(object handler) => handlerTable.Unregister(handler);
@@ -75,8 +75,7 @@ print('Hello World!')
         executor.Error += (tag, exception) => OnError(tag, exception, chatActivity.ChatBot);
         return Task.CompletedTask;
     }
-
-    public async ValueTask DisposeAsync()
+    public override async Task DestroyAsync()
     {
         await Task.Run(async () => {
             while (executor.IsIdle == false)
@@ -84,6 +83,7 @@ print('Hello World!')
         });
         await executor.DisposeAsync();
     }
+
 
     void OnChatSent(string _)
     {
