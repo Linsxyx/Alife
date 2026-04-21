@@ -27,56 +27,62 @@ public class ChatActivity : IAsyncDisposable
             extensionServiceBuilder.AddSingleton(pluginType);
         ServiceProvider extensionService = extensionServiceBuilder.BuildServiceProvider();
 
-        //实例化所有插件
-        List<Plugin> allPlugins = new(extensionServiceBuilder.Count);
-        for (int index = 0; index < extensionServiceBuilder.Count; index++)
+        try
         {
-            ServiceDescriptor serviceDescriptor = extensionServiceBuilder[index];
-            progress?.Report(($"创建服务 {serviceDescriptor.ServiceType.Name}", (float)index / extensionServiceBuilder.Count));
-
-            await Task.Delay(100);
-
-            object service = extensionService.GetRequiredService(serviceDescriptor.ServiceType);
-            if (service is Plugin plugin)
-                allPlugins.Add(plugin);
-        }
-
-        //赋值插件配置数据
-        foreach (Plugin pluginInstance in allPlugins)
-        {
-            Type pluginType = pluginInstance.GetType();
-            object? extensionData = configurationSystem.GetConfiguration(pluginType, character.StorageKey);
-            if (extensionData != null)
+            //实例化所有插件
+            List<Plugin> allPlugins = new(extensionServiceBuilder.Count);
+            for (int index = 0; index < extensionServiceBuilder.Count; index++)
             {
-                MethodInfo? configureMethod = pluginType.GetMethod("Configure");
-                if (configureMethod != null)
-                    configureMethod.Invoke(pluginInstance, [extensionData]);
+                ServiceDescriptor serviceDescriptor = extensionServiceBuilder[index];
+                progress?.Report(($"创建服务 {serviceDescriptor.ServiceType.Name}", (float)index / extensionServiceBuilder.Count));
+
+                await Task.Delay(100);
+
+                object service = extensionService.GetRequiredService(serviceDescriptor.ServiceType);
+                if (service is Plugin plugin)
+                    allPlugins.Add(plugin);
             }
-        }
 
-        //创建人工智能构建器
-        IKernelBuilder kernelBuilder = Kernel.CreateBuilder();
-        //创建上下文构建器
-        ChatHistoryAgentThread contentBuilder = new();
-        //构建环境
-        Plugin.AwakeContext awakeContext = new() {
-            character = character,
-            kernelBuilder = kernelBuilder,
-            contextBuilder = contentBuilder
-        };
-        for (int index = 0; index < allPlugins.Count; index++)
+            //赋值插件配置数据
+            foreach (Plugin pluginInstance in allPlugins)
+            {
+                if (pluginInstance is IConfigurable configurable)
+                {
+                    Type pluginType = pluginInstance.GetType();
+                    object? configData = configurationSystem.GetConfiguration(pluginType, character.StorageKey);
+                    configurable.Configuration = configData;
+                }
+            }
+
+            //创建人工智能构建器
+            IKernelBuilder kernelBuilder = Kernel.CreateBuilder();
+            //创建上下文构建器
+            ChatHistoryAgentThread contentBuilder = new();
+            //构建环境
+            Plugin.AwakeContext awakeContext = new() {
+                character = character,
+                kernelBuilder = kernelBuilder,
+                contextBuilder = contentBuilder
+            };
+            for (int index = 0; index < allPlugins.Count; index++)
+            {
+                Plugin pluginInstance = allPlugins[index];
+                progress?.Report(($"初始化服务 {pluginInstance.GetType().Name}", (float)index / allPlugins.Count));
+
+                await pluginInstance.AwakeAsync(awakeContext);
+            }
+
+            //正式开始 AI 代理
+            Kernel kernelService = kernelBuilder.Build();
+            ChatActivity chatActivity = new(character, contentBuilder, kernelService, extensionService, allPlugins);
+
+            return chatActivity;
+        }
+        catch
         {
-            Plugin pluginInstance = allPlugins[index];
-            progress?.Report(($"初始化服务 {pluginInstance.GetType().Name}", (float)index / allPlugins.Count));
-
-            await pluginInstance.AwakeAsync(awakeContext);
+            await extensionService.DisposeAsync();
+            throw;
         }
-
-        //正式开始 AI 代理
-        Kernel kernelService = kernelBuilder.Build();
-        ChatActivity chatActivity = new(character, contentBuilder, kernelService, extensionService, allPlugins);
-
-        return chatActivity;
     }
 
     public ServiceProvider PluginService => pluginService;

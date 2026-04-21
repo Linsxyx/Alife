@@ -1,11 +1,7 @@
 @inherits LayoutComponentBase
-@using AntDesign
-@using Alife.Framework
-@using Alife.Implement
-@using Alife.Components.Services
 @inject CharacterSystem CharacterSystem
 @inject ChatActivitySystem ChatActivitySystem
-@inject ActivityNotifyService ActivityNotifyService
+@inject FragmentService FragmentService
 
 <div class="app-container">
     <!-- 第一层 Sider: 全局主导航 -->
@@ -25,10 +21,10 @@
        Closable="false"
        MaskClosable="false"
        Centered="true">
-    <Flex Direction="@AntDesign.FlexDirection.Vertical" Align="@AntDesign.FlexAlign.Center"
-          Gap="@AntDesign.FlexGap.Large">
-        <Spin Size="@AntDesign.SpinSize.Large" Tip="正在初始化环境，请稍候喵..."/>
-        <Text Type="@AntDesign.TextElementType.Secondary">涉及模型加载与记忆恢复，请勿关闭应用</Text>
+    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center"
+          Gap="@FlexGap.Large">
+        <Spin Size="@SpinSize.Large" Tip="正在初始化环境，请稍候喵..."/>
+        <Text Type="@TextElementType.Secondary">涉及模型加载与记忆恢复，请勿关闭应用</Text>
     </Flex>
 </Modal>
 
@@ -50,9 +46,17 @@
             isAutoStarting = true;
             StateHasChanged();
 
-
             foreach (Character character in startingCharacters)
-                await ChatActivitySystem.Play(character);
+            {
+                try
+                {
+                    await ChatActivitySystem.Play(character);
+                }
+                catch (Exception e)
+                {
+                    FragmentService.ShowException($"{character.Name} 自启失败喵！", e);
+                }
+            }
 
             isAutoStarting = false;
             StateHasChanged();

@@ -22,9 +22,9 @@ public class ChatMessageService
     {
         return chatbots.GetValueOrDefault(name);
     }
-    public List<ChatMessage> GetMessages(string name)
+    public List<ChatMessage>? GetMessages(string name)
     {
-        return messages[name];
+        return messages.GetValueOrDefault(name);
     }
 
     public void ClearMessages(string name)
@@ -57,7 +57,7 @@ public class ChatMessageService
     void OnActivityCreated(ChatActivity activity)
     {
         string name = activity.Character.Name;
-        
+
         if (messages.TryGetValue(name, out List<ChatMessage>? list) == false)
         {
             list = new List<ChatMessage>();

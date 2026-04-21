@@ -28,9 +28,10 @@ public partial class App
         services.AddSingleton<PluginSystem>();
         services.AddSingleton<CharacterSystem>();
         services.AddSingleton<ChatActivitySystem>();
+        // 添加主窗口本身到容器，以便以后注入
         services.AddSingleton<ActivityNotifyService>();
         services.AddSingleton<ChatMessageService>();
-        // 添加主窗口本身到容器，以便以后注入
+        services.AddSingleton<FragmentService>();
         services.AddSingleton<MainWindow>();
 
         ServiceProvider = services.BuildServiceProvider();
