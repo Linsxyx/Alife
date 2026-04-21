@@ -31,7 +31,6 @@ public partial class App
         // 添加主窗口本身到容器，以便以后注入
         services.AddSingleton<ActivityNotifyService>();
         services.AddSingleton<ChatMessageService>();
-        services.AddSingleton<FragmentService>();
         services.AddSingleton<MainWindow>();
 
         ServiceProvider = services.BuildServiceProvider();

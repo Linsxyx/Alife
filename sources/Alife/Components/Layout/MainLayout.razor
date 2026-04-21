@@ -1,7 +1,6 @@
 @inherits LayoutComponentBase
 @inject CharacterSystem CharacterSystem
 @inject ChatActivitySystem ChatActivitySystem
-@inject FragmentService FragmentService
 
 <div class="app-container">
     <!-- 第一层 Sider: 全局主导航 -->
@@ -28,11 +27,42 @@
     </Flex>
 </Modal>
 
+<!-- 本地错误显示模态框 -->
+<Modal Visible="@(startupErrors.Any())"
+       Title="系统自启异常报告"
+       OnOk="@(() => startupErrors.Clear())"
+       OnCancel="@(() => startupErrors.Clear())"
+       Width="800"
+       Centered="true">
+    <div style="max-height: 500px; overflow-y: auto;">
+        @foreach (var error in startupErrors)
+        {
+            <div
+                style="margin-bottom: 24px; padding: 16px; border: 1px solid #ffccc7; background: #fff1f0; border-radius: 8px;">
+                <div style="font-weight: bold; color: #ff4d4f; font-size: 16px; margin-bottom: 8px;">
+                    <Icon Type="warning"/>
+                    角色 [@error.Name] 唤醒失败喵！
+                </div>
+                <div style="margin-bottom: 8px; font-weight: 500;">错误详情：@error.Ex.Message</div>
+                @if (error.Ex.InnerException != null)
+                {
+                    <div style="margin-bottom: 8px; color: #820014;">
+                        原因：@error.Ex.InnerException.Message
+                    </div>
+                }
+                <pre
+                    style="font-size: 11px; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 4px; white-space: pre-wrap;">@error.Ex.StackTrace</pre>
+            </div>
+        }
+    </div>
+</Modal>
+
 <AntContainer/>
 
 @code {
     static bool hasAutoStarted = false;
     bool isAutoStarting = false;
+    readonly List<(string Name, Exception Ex)> startupErrors = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -40,7 +70,10 @@
         hasAutoStarted = true;
 
         //角色自启动
-        var startingCharacters = CharacterSystem.GetAllCharacters().Where(c => c.AutoActivate && !ChatActivitySystem.IsActivated(c)).ToList();
+        var startingCharacters = CharacterSystem.GetAllCharacters()
+            .Where(c => c.AutoActivate && !ChatActivitySystem.IsActivated(c))
+            .ToList();
+
         if (startingCharacters.Any())
         {
             isAutoStarting = true;
@@ -50,11 +83,11 @@
             {
                 try
                 {
-                    await ChatActivitySystem.Play(character);
+                    await Task.Run(async () => await ChatActivitySystem.Play(character));
                 }
                 catch (Exception e)
                 {
-                    FragmentService.ShowException($"{character.Name} 自启失败喵！", e);
+                    startupErrors.Add((character.Name, e));
                 }
             }
 

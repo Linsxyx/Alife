@@ -2,7 +2,7 @@
 @using Alife.Components.Elements.Utility
 @inject ChatActivitySystem ChatActivitySystem
 @inject CharacterSystem CharacterSystem
-@inject FragmentService FragmentService
+@inject ModalService ModalService
 
 <div style="height: 100%;width: 100%;overflow-y: scroll;
 display: grid;grid-template-columns: repeat(4, 1fr);gap: 10px;align-content: start">
@@ -55,9 +55,28 @@ display: grid;grid-template-columns: repeat(4, 1fr);gap: 10px;align-content: sta
             });
             await ChatActivitySystem.Play(character, progress);
         }
-        catch (Exception e)
+        catch (Exception ex)
         {
-            FragmentService.ShowException("角色活动创建失败喵！", e);
+            RenderFragment content = (builder) => {
+                builder.OpenElement(0, "div");
+                builder.OpenElement(1, "Text");
+                builder.AddContent(2, "错误详情：" + ex.Message);
+                builder.CloseElement();
+                builder.OpenElement(3, "br");
+                builder.CloseElement();
+                builder.OpenElement(4, "pre");
+                builder.AddAttribute(5, "style", "max-height: 300px; overflow-y: auto; margin-top: 12px; font-size: 12px; color: #ff4d4f; background: #fff1f0; padding: 12px; border: 1px solid #ffccc7; border-radius: 4px;");
+                builder.AddContent(6, ex.StackTrace);
+                builder.CloseElement();
+                builder.CloseElement();
+            };
+
+            _ = ModalService.Error(new ConfirmOptions {
+                Title = "角色活动创建失败喵！",
+                Content = content,
+                Width = 800,
+                Centered = true
+            });
         }
 
         isCreating = false;
