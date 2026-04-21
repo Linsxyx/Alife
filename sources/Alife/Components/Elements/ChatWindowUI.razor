@@ -51,7 +51,7 @@
                      AutoSize="true"
                      MinRows="1"
                      MaxRows="6"
-                     OnKeyDown="HandleKeyDown" 
+                     OnPressEnter="OnPressEnter"
                      Style="flex: 1; border-radius: 8px; border: 1px solid #d9d9d9; padding: 8px 12px;"></TextArea>
             <Button Type="@AntDesign.ButtonType.Primary" 
                     Icon="@IconType.Outline.Send"
@@ -100,7 +100,8 @@
 </script>
 @using Alife.Components.Services
 @code {
-    [Parameter] public ChatActivity Activity { get; set; } = null!;
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public ChatActivity? Activity { get; set; }
 
     string inputText = "";
     List<ChatMessage> messages = default!;
@@ -109,9 +110,14 @@
     {
         base.OnInitialized();
         
-        messages = ChatUIState.GetMessages(Activity);
+        messages = ChatUIState.GetMessagesByName(Name);
         ChatUIState.OnUIMessageChanged += OnUIMessageChanged;
         ChatUIState.OnUIMessageSent += OnUIMessageSent;
+    }
+
+    protected override void OnParametersSet()
+    {
+        messages = ChatUIState.GetMessagesByName(Name);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -130,13 +136,13 @@
 
     void OnUIMessageChanged(string name)
     {
-        if (name == Activity.Character.Name)
+        if (name == Name)
             InvokeAsync(StateHasChanged);
     }
 
     void OnUIMessageSent(string name)
     {
-        if (name == Activity.Character.Name)
+        if (name == Name)
             InvokeAsync(() => {
                 StateHasChanged();
                 JsRuntime.InvokeVoidAsync("forceScrollBottom");
@@ -145,13 +151,17 @@
 
     void OnClear()
     {
-        ChatUIState.ClearMessages(Activity);
+        if (Activity != null)
+            ChatUIState.ClearMessages(Activity);
+        else
+            ChatUIState.GetMessagesByName(Name).Clear();
+            
         StateHasChanged();
     }
 
-    async Task HandleKeyDown(KeyboardEventArgs e)
+    async Task OnPressEnter(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !e.ShiftKey)
+        if (!e.ShiftKey)
         {
             await OnSend();
         }
@@ -159,11 +169,13 @@
 
     async Task OnSend()
     {
+        if (Activity == null) return;
+
         string text = inputText;
         if (string.IsNullOrWhiteSpace(text)) return;
         
         inputText = "";
-        await InvokeAsync(StateHasChanged); // 强制强制清空界面上的输入框内容喵
+        await InvokeAsync(StateHasChanged);
         
         Activity.ChatBot.Chat(text.TrimEnd('\r', '\n'));
     }

@@ -2,6 +2,9 @@ namespace Alife.Framework;
 
 public class ChatActivitySystem
 {
+    public event Action<ChatActivity>? Created;
+    public event Action<ChatActivity>? Destroyed;
+
     public IEnumerable<ChatActivity> GetAllChatActivities()
     {
         return activities.Values;
@@ -19,6 +22,8 @@ public class ChatActivitySystem
             storageSystem,
         ]);
         activities.Add(character.Name, chatActivity);
+        Created?.Invoke(chatActivity);
+        await chatActivity.Start();
     }
 
     public async Task Stop(Character character)
@@ -26,6 +31,7 @@ public class ChatActivitySystem
         ChatActivity chatActivity = activities[character.Name];
         await chatActivity.DisposeAsync();
         activities.Remove(character.Name);
+        Destroyed?.Invoke(chatActivity);
     }
 
     public ChatActivitySystem(ConfigurationSystem configuration, StorageSystem storageSystem)

@@ -174,7 +174,7 @@ else
                     }
                     else
                     {
-                        <ChatWindowUI Activity="@activity" />
+                        <ChatWindowUI Name="@Name" Activity="@activity" />
                     }
                 </div>
                 <div style="display: @(activeTab == "history" ? "block" : "none"); height: 100%;">
@@ -358,8 +358,6 @@ else
         try 
         {
             await ChatActivitySystem.Play(character);
-            ChatUIState.EnsureAllHooked(ChatActivitySystem);
-            ActivityNotifyService.NotifyChanged();
             LoadData();
             activeTab = "chat";
         }
@@ -397,7 +395,6 @@ else
     {
         if (character == null) return;
         await ChatActivitySystem.Stop(character);
-        ActivityNotifyService.NotifyChanged();
         LoadData();
     }
 

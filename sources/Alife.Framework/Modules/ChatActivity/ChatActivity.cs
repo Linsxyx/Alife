@@ -74,15 +74,7 @@ public class ChatActivity : IAsyncDisposable
 
         //正式开始 AI 代理
         Kernel kernelService = kernelBuilder.Build();
-        ChatActivity chatActivity = new ChatActivity(character, contentBuilder, kernelService, extensionService, allPlugins);
-
-        for (int index = 0; index < allPlugins.Count; index++)
-        {
-            Plugin pluginInstance = allPlugins[index];
-            progress?.Report(($"开始服务 {pluginInstance.GetType().Name}", (float)index / allPlugins.Count));
-
-            await pluginInstance.StartAsync(kernelService, chatActivity);
-        }
+        ChatActivity chatActivity = new(character, contentBuilder, kernelService, extensionService, allPlugins);
 
         return chatActivity;
     }
@@ -116,6 +108,17 @@ public class ChatActivity : IAsyncDisposable
             ),
         };
         chatBot = new(llmAgent, context);
+    }
+
+    public async Task Start(IProgress<(string, float)>? progress = null)
+    {
+        for (int index = 0; index < plugins.Count; index++)
+        {
+            Plugin pluginInstance = plugins[index];
+            progress?.Report(($"开始服务 {pluginInstance.GetType().Name}", (float)index / plugins.Count));
+
+            await pluginInstance.StartAsync(kernelService, this);
+        }
     }
 
     readonly Character character;

@@ -23,6 +23,14 @@ public static class ChatUIState
     public static event Action<string>? OnUIMessageSent;
 
     /// <summary>
+    /// 全局初始化：绑定活动系统的创建事件，确保所有活动一诞生就被UI录制器“粘”上。
+    /// </summary>
+    public static void Initialize(ChatActivitySystem system)
+    {
+        system.Created += EnsureHooked;
+    }
+
+    /// <summary>
     /// 确保指定Activity的ChatBot事件已挂接到UI消息列表。
     /// 幂等操作，重复调用安全。
     /// </summary>
@@ -65,10 +73,15 @@ public static class ChatUIState
         };
     }
 
+    public static List<ChatMessage> GetMessagesByName(string name)
+    {
+        return _botMessages.GetOrAdd(name, _ => new List<ChatMessage>());
+    }
+
     public static List<ChatMessage> GetMessages(ChatActivity activity)
     {
         EnsureHooked(activity);
-        return _botMessages.GetOrAdd(activity.Character.Name, _ => new List<ChatMessage>());
+        return GetMessagesByName(activity.Character.Name);
     }
 
     public static void ClearMessages(ChatActivity activity)

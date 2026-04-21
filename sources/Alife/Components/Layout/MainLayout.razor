@@ -53,9 +53,7 @@
                 await ChatActivitySystem.Play(character);
             }
 
-            ChatUIState.EnsureAllHooked(ChatActivitySystem);
             ActivityNotifyService.NotifyChanged();
-
             isAutoStarting = false;
             StateHasChanged();
         }

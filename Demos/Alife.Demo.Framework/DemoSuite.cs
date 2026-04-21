@@ -31,6 +31,8 @@ public class DemoSuite : IAsyncDisposable
         LogSystem($"[角色系统提示词]:\n{character.Prompt}");
         Terminal.LogHint("环境构建完成喵！✨");
 
+        await activity.Start();
+
         return suite;
     }
 

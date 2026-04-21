@@ -41,7 +41,10 @@ public partial class App : System.Windows.Application
         services.AddSingleton<MainWindow>();
 
         ServiceProvider = services.BuildServiceProvider();
-
+        
+        // 初始化聊天状态录制服务
+        ChatUIState.Initialize(ServiceProvider.GetRequiredService<ChatActivitySystem>());
+        
         var mainWindow = ServiceProvider.GetRequiredService<MainWindow>();
         mainWindow.Show();
     }
