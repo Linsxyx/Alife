@@ -137,7 +137,7 @@
         isLoading = true;
         try
         {
-            Progress<(string, float)> progress = new Progress<(string, float)>(tuple => {
+            Progress<(string, float)> progress = new(tuple => {
                 loadingTask = tuple.Item1;
                 loadingProgress = tuple.Item2;
                 InvokeAsync(UpdateState);
@@ -145,7 +145,6 @@
 
             await Task.Run(async () => {
                 activity = await ChatActivitySystem.Play(Character, progress);
-                await InvokeAsync(UpdateState);
             });
         }
         catch (Exception ex)
@@ -155,6 +154,7 @@
         finally
         {
             isLoading = false;
+            await InvokeAsync(UpdateState);
         }
     }
 
