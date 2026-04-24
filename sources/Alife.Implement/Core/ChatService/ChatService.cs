@@ -1,9 +1,8 @@
 using Alife.Framework;
 using Microsoft.SemanticKernel;
 using System.Net;
-using Alife.Plugins.Official.Components;
+using Alife.Implement.Core.ChatService;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-
 
 namespace Alife.Implement;
 
@@ -24,7 +23,6 @@ public class ChatServiceConfig : ICloneable
             apiKey = apiKey,
             thinkingEnabled = thinkingEnabled,
             reasoningEffort = reasoningEffort
-
         };
     }
 }
@@ -68,7 +66,7 @@ public class ChatService : Plugin, IConfigurable<ChatServiceConfig>, IProvideExe
     public void ProvideSettings(PromptExecutionSettings settings)
     {
         if (Configuration == null || !Configuration.thinkingEnabled) return;
-        
+
         if (settings is OpenAIPromptExecutionSettings openAISettings)
         {
             // 通过强类型设置，避免 JsonElement 类型错误
@@ -90,4 +88,3 @@ public class ChatService : Plugin, IConfigurable<ChatServiceConfig>, IProvideExe
         };
     }
 }
-

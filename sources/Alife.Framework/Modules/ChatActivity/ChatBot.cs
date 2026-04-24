@@ -10,6 +10,8 @@ namespace Alife.Framework;
 
 public class ChatBot : IAsyncDisposable
 {
+    public const string ThinkContentPrefix = "__THINK__";
+
     public event Action<string>? ChatSent;
     public event Action<string>? ChatReceived;
     public event Action<string>? ReasoningReceived;
@@ -63,8 +65,8 @@ public class ChatBot : IAsyncDisposable
                 string? content = enumerator.Current.Message.Content;
                 if (content != null)
                 {
-                    // 检查是否是通过 DeepSeekReasoningHandler 注入的思考过程
-                    if (content.StartsWith("__THINK__"))
+                    //前置报文会对思考内容进行特殊处理，以便兼容思考模式
+                    if (content.StartsWith(ThinkContentPrefix))
                     {
                         string reasoningPart = content.Substring(9);
                         if (!string.IsNullOrEmpty(reasoningPart))
@@ -83,7 +85,7 @@ public class ChatBot : IAsyncDisposable
                 if (metaData != null)
                 {
                     // 尝试从元数据中提取思考过程 (支持原生支持此字段的 SDK)
-                    if (metaData.TryGetValue("ReasoningContent", out object? reasoning) || 
+                    if (metaData.TryGetValue("ReasoningContent", out object? reasoning) ||
                         metaData.TryGetValue("reasoning_content", out reasoning))
                     {
                         string? reasoningStr = reasoning?.ToString();

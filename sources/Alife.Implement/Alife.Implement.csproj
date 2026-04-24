@@ -33,7 +33,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AdditionalFiles Include="Core\ChatService\OpenAIChatServiceUI.razor" />
     <AdditionalFiles Include="Standard\McpServices\McpServiceUI.razor" />
   </ItemGroup>
 

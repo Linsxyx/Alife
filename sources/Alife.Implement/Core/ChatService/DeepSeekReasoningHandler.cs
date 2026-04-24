@@ -1,4 +1,5 @@
 using System.Text;
+using Alife.Framework;
 
 namespace Alife.Implement;
 
@@ -9,16 +10,14 @@ namespace Alife.Implement;
 /// </summary>
 public class DeepSeekReasoningHandler : DelegatingHandler
 {
-    public DeepSeekReasoningHandler(HttpMessageHandler innerHandler) : base(innerHandler)
-    {
-    }
+    public DeepSeekReasoningHandler(HttpMessageHandler innerHandler) : base(innerHandler) { }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         HttpResponseMessage response = await base.SendAsync(request, cancellationToken);
 
         // 仅对流式传输进行处理
-        if (response.IsSuccessStatusCode && 
+        if (response.IsSuccessStatusCode &&
             response.Content.Headers.ContentType?.MediaType == "text/event-stream")
         {
             Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -46,7 +45,7 @@ public class DeepSeekReasoningHandler : DelegatingHandler
 
             // 将读取到的字节转为字符串进行处理
             string text = Encoding.UTF8.GetString(buffer.Span.Slice(0, bytesRead));
-            
+
             // 核心逻辑：将 reasoning_content 替换为 content，并加上特殊标记
             // 注意：DeepSeek 的 reasoning_content 通常在 content 之前返回，且 content 为 null
             if (text.Contains("\"reasoning_content\":\""))
@@ -55,7 +54,7 @@ public class DeepSeekReasoningHandler : DelegatingHandler
                 text = text.Replace("\"content\":null", "\"content\":\"\"");
                 // 将 "reasoning_content":"..." 替换为 "content":"__THINK__..."
                 // 这样 SDK 就会把它当做普通内容读出来，我们在 ChatBot 里再剥离
-                text = text.Replace("\"reasoning_content\":\"", "\"content\":\"__THINK__");
+                text = text.Replace("\"reasoning_content\":\"", $"\"content\":\"{ChatBot.ThinkContentPrefix}");
             }
 
             byte[] newBytes = Encoding.UTF8.GetBytes(text);
