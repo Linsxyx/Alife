@@ -70,6 +70,7 @@ public class ChatActivity : IAsyncDisposable
             //构建环境
             Plugin.AwakeContext awakeContext = new() {
                 character = character,
+                services = extensionService,
                 kernelBuilder = kernelBuilder,
                 contextBuilder = contentBuilder
             };

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Reflection;
+using System.Text;
 
 namespace Alife.Function.Interpreter;
 
@@ -18,145 +19,32 @@ public class XmlContext
 }
 public class XmlHandler
 {
-    public required string Name { get; init; }
-    public string? Description { get; init; }
+    public string? Name { get; set; }
+    public string? Description { get; set; }
+    public bool IsImplicit { get; set; }
+    public string? Prompt { get; set; }
     public List<XmlFunction> Functions { get; init; } = new();
-    public required object Instance { get; init; }
-}
-public class XmlFunction : IComparable<XmlFunction>
-{
-    public required string Name { get; init; }
-    public string? Description { get; init; }
-    public string? ContentName { get; init; }
-    public string? ContentDescription { get; init; }
-    public List<XmlParameter> Parameters { get; init; } = new();
-    public required Func<XmlContext, Task> Invoker { get; init; }
-    public int Order { get; init; }
+    public object? Instance { get; init; }
 
-    public int CompareTo(XmlFunction? other)
+    public XmlHandler() { }
+    public XmlHandler(object instance, string? prompt = null, bool isImplicit = false)
     {
-        if (ReferenceEquals(this, other)) return 0;
-        if (other is null) return 1;
-        return Order.CompareTo(other.Order);
-    }
-}
-public record XmlParameter
-{
-    public required string Name { get; init; }
-    public string? Description { get; init; }
-    public required string Type { get; init; }
-}
-public class XmlHandlerTable
-{
-    public void Register(XmlHandler handler)
-    {
-        xmlHandlers.Add(handler);
+        Instance = instance;
+        Type handlerType = instance.GetType();
+        Name = handlerType.Name;
+        Description = handlerType.GetCustomAttribute<DescriptionAttribute>()?.Description;
+        IsImplicit = isImplicit;
+        Prompt = prompt;
 
-        foreach (XmlFunction xmlFunction in handler.Functions)
-        {
-            if (xmlFunctions.TryGetValue(xmlFunction.Name, out SortedSet<XmlFunction>? xmlFunctionGroup) == false)
-            {
-                xmlFunctionGroup = new SortedSet<XmlFunction>();
-                xmlFunctions[xmlFunction.Name] = xmlFunctionGroup;
-            }
-
-            xmlFunctionGroup.Add(xmlFunction);
-        }
-    }
-    public void Unregister(XmlHandler handler)
-    {
-        xmlHandlers.Remove(handler);
-        foreach (XmlFunction xmlHandlerFunction in handler.Functions)
-        {
-            if (xmlFunctions.TryGetValue(xmlHandlerFunction.Name, out SortedSet<XmlFunction>? xmlFunctionGroup))
-                xmlFunctionGroup.Remove(xmlHandlerFunction);
-        }
-    }
-    public void Register(object handler)
-    {
-        Type handlerType = handler.GetType();
-
-        List<XmlFunction> functions = new();
         foreach (MethodInfo method in handlerType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
         {
-            XmlFunction? function = ParseFunction(method, handler);
-            if (function == null)
-                continue;
-            functions.Add(function);
+            XmlFunction? function = ParseFunction(method, instance);
+            if (function != null)
+                Functions.Add(function);
         }
-
-        DescriptionAttribute? descriptionAttribute = handlerType.GetCustomAttribute<DescriptionAttribute>();
-        XmlHandler xmlHandler = new XmlHandler() {
-            Name = handlerType.Name,
-            Description = descriptionAttribute?.Description,
-            Functions = functions,
-            Instance = handler,
-        };
-
-        Register(xmlHandler);
-    }
-    public void Unregister(object handler)
-    {
-        XmlHandler? xmlHandler = xmlHandlers.Find(xmlHandler => xmlHandler.Instance == handler);
-        if (xmlHandler == null)
-            return;
-
-        Unregister(xmlHandler);
-    }
-    public string Document()
-    {
-        System.Text.StringBuilder sb = new();
-
-        foreach (XmlHandler handler in xmlHandlers)
-        {
-            sb.AppendLine($"来源：{handler.Name}");
-            if (string.IsNullOrEmpty(handler.Description) == false)
-            {
-                sb.AppendLine($"> {handler.Description}");
-            }
-
-            foreach (XmlFunction function in handler.Functions)
-            {
-                sb.Append($"- <{function.Name}");
-                foreach (XmlParameter param in function.Parameters)
-                {
-                    string pDesc = string.IsNullOrEmpty(param.Description) ? "" : $"（{param.Description}）";
-                    sb.Append($" {param.Name}=\"{param.Type}\"{pDesc}");
-                }
-
-                if (function.ContentName != null)
-                {
-                    sb.Append(">");
-                    string cDesc = string.IsNullOrEmpty(function.ContentDescription) ? "" : $"（{function.ContentDescription}）";
-                    sb.Append($"{function.ContentName}{cDesc}</{function.Name}>");
-                }
-                else
-                {
-                    sb.Append(" />");
-                }
-
-                if (string.IsNullOrEmpty(function.Description) == false)
-                    sb.Append($" : {function.Description}");
-
-                sb.AppendLine();
-            }
-            sb.AppendLine();
-        }
-
-        return sb.ToString().TrimEnd();
-    }
-    public async Task Handle(string name, XmlContext tagContext)
-    {
-        if (xmlFunctions.TryGetValue(name.ToLower(), out SortedSet<XmlFunction>? xmlFunctionGroup) == false)
-            return;
-        foreach (XmlFunction xmlFunction in xmlFunctionGroup)
-            await xmlFunction.Invoker(tagContext);
     }
 
-    readonly List<XmlHandler> xmlHandlers = new();
-    readonly Dictionary<string, SortedSet<XmlFunction>> xmlFunctions = new();
-
-    XmlFunction? ParseFunction(MethodInfo method, object handler)
+    static XmlFunction? ParseFunction(MethodInfo method, object handler)
     {
         XmlFunctionAttribute? functionAttribute = method.GetCustomAttribute<XmlFunctionAttribute>();
         if (functionAttribute == null)
@@ -271,5 +159,128 @@ public class XmlHandlerTable
             Invoker = Invoker,
             Order = functionAttribute.Order,
         };
+    }
+}
+public class XmlFunction : IComparable<XmlFunction>
+{
+    public required string Name { get; init; }
+    public string? Description { get; init; }
+    public string? ContentName { get; init; }
+    public string? ContentDescription { get; init; }
+    public List<XmlParameter> Parameters { get; init; } = new();
+    public required Func<XmlContext, Task> Invoker { get; init; }
+    public int Order { get; init; }
+
+    public int CompareTo(XmlFunction? other)
+    {
+        if (ReferenceEquals(this, other)) return 0;
+        if (other is null) return 1;
+        return Order.CompareTo(other.Order);
+    }
+}
+public record XmlParameter
+{
+    public required string Name { get; init; }
+    public string? Description { get; init; }
+    public required string Type { get; init; }
+}
+public class XmlHandlerTable
+{
+    public IReadOnlyList<XmlHandler> Handlers => xmlHandlers;
+
+    public void Register(XmlHandler handler)
+    {
+        xmlHandlers.Add(handler);
+        xmlDocuments.Add(handler, GenerateDocument(handler));
+        foreach (XmlFunction xmlFunction in handler.Functions)
+        {
+            if (xmlFunctions.TryGetValue(xmlFunction.Name, out SortedSet<XmlFunction>? xmlFunctionGroup) == false)
+            {
+                xmlFunctionGroup = new SortedSet<XmlFunction>();
+                xmlFunctions[xmlFunction.Name] = xmlFunctionGroup;
+            }
+
+            xmlFunctionGroup.Add(xmlFunction);
+        }
+    }
+    public void Unregister(XmlHandler handler)
+    {
+        xmlHandlers.Remove(handler);
+        xmlDocuments.Remove(handler);
+        foreach (XmlFunction xmlHandlerFunction in handler.Functions)
+        {
+            if (xmlFunctions.TryGetValue(xmlHandlerFunction.Name, out SortedSet<XmlFunction>? xmlFunctionGroup))
+                xmlFunctionGroup.Remove(xmlHandlerFunction);
+        }
+    }
+    public string Document()
+    {
+        StringBuilder sb = new();
+        foreach (XmlHandler handler in xmlHandlers)
+        {
+            if (handler.IsImplicit)
+                continue;
+            sb.AppendLine(Document(handler));
+            sb.AppendLine();
+        }
+        return sb.ToString().TrimEnd();
+    }
+
+    public string Document(XmlHandler xmlHandler)
+    {
+        return xmlDocuments[xmlHandler];
+    }
+    public async Task Handle(string name, XmlContext tagContext)
+    {
+        if (xmlFunctions.TryGetValue(name.ToLower(), out SortedSet<XmlFunction>? xmlFunctionGroup) == false)
+            return;
+        foreach (XmlFunction xmlFunction in xmlFunctionGroup)
+            await xmlFunction.Invoker(tagContext);
+    }
+
+    readonly List<XmlHandler> xmlHandlers = new();
+    readonly Dictionary<XmlHandler, string> xmlDocuments = new();
+    readonly Dictionary<string, SortedSet<XmlFunction>> xmlFunctions = new();
+
+    static string GenerateDocument(XmlHandler handler)
+    {
+        StringBuilder sb = new();
+        sb.AppendLine($"来源：{handler.Name}");
+        if (string.IsNullOrEmpty(handler.Description) == false)
+        {
+            sb.AppendLine($"> {handler.Description}");
+        }
+        if (string.IsNullOrEmpty(handler.Prompt) == false)
+        {
+            sb.AppendLine($"注意：{handler.Prompt}");
+        }
+
+        foreach (XmlFunction function in handler.Functions)
+        {
+            sb.Append($"- <{function.Name}");
+            foreach (XmlParameter param in function.Parameters)
+            {
+                string pDesc = string.IsNullOrEmpty(param.Description) ? "" : $"（{param.Description}）";
+                sb.Append($" {param.Name}=\"{param.Type}\"{pDesc}");
+            }
+
+            if (function.ContentName != null)
+            {
+                sb.Append(">");
+                string cDesc = string.IsNullOrEmpty(function.ContentDescription) ? "" : $"（{function.ContentDescription}）";
+                sb.Append($"{function.ContentName}{cDesc}</{function.Name}>");
+            }
+            else
+            {
+                sb.Append(" />");
+            }
+
+            if (string.IsNullOrEmpty(function.Description) == false)
+                sb.Append($" : {function.Description}");
+
+            sb.AppendLine();
+        }
+
+        return sb.ToString().TrimEnd();
     }
 }

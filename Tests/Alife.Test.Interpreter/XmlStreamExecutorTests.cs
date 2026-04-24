@@ -35,7 +35,7 @@ public class XmlStreamExecutorTests
     {
         TestHandler handler = new TestHandler();
         XmlHandlerTable table = new XmlHandlerTable();
-        table.Register(handler);
+        table.Register(new XmlHandler(handler));
 
         XmlStreamParser parser = new XmlStreamParser();
         // Set minBreakingLength to 1 to force split on every separator
@@ -60,7 +60,7 @@ public class XmlStreamExecutorTests
     {
         TestHandler handler = new TestHandler();
         XmlHandlerTable table = new XmlHandlerTable();
-        table.Register(handler);
+        table.Register(new XmlHandler(handler));
 
         XmlStreamParser parser = new XmlStreamParser();
         await using XmlStreamExecutor executor = new XmlStreamExecutor(parser, table, [], 100);
@@ -78,7 +78,7 @@ public class XmlStreamExecutorTests
     {
         TestHandler handler = new TestHandler();
         XmlHandlerTable table = new XmlHandlerTable();
-        table.Register(handler);
+        table.Register(new XmlHandler(handler));
 
         XmlStreamParser parser = new XmlStreamParser();
         await using XmlStreamExecutor executor = new XmlStreamExecutor(parser, table, [], 100);

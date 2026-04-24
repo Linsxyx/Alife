@@ -10,9 +10,9 @@ public class XmlHandlerTableTests
     public void TestXmlHandlerTableDocument()
     {
         XmlHandlerTable handlerTable = new XmlHandlerTable();
-        handlerTable.Register(new MockPetHandler());
-        handlerTable.Register(new MockSpeechHandler());
-        handlerTable.Register(new MockSystemHandler());
+        handlerTable.Register(new XmlHandler(new MockPetHandler()));
+        handlerTable.Register(new XmlHandler(new MockSpeechHandler()));
+        handlerTable.Register(new XmlHandler(new MockSystemHandler()));
 
         string actual = handlerTable.Document();
         const string Expected = @"MockPetHandler
@@ -36,9 +36,9 @@ MockSystemHandler
         XmlHandleLog.Clear();
 
         XmlHandlerTable handlerTable = new XmlHandlerTable();
-        handlerTable.Register(new MockPetHandler());
-        handlerTable.Register(new MockSpeechHandler());
-        handlerTable.Register(new MockSystemHandler());
+        handlerTable.Register(new XmlHandler(new MockPetHandler()));
+        handlerTable.Register(new XmlHandler(new MockSpeechHandler()));
+        handlerTable.Register(new XmlHandler(new MockSystemHandler()));
 
         XmlContext speak = new() {
             Parameters = new Dictionary<string, string> {

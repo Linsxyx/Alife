@@ -13,6 +13,9 @@ public partial class App
     {
         base.OnStartup(e);
 
+        // Alife官方插件
+        Assembly.Load("Alife.Implement");
+        
         ServiceCollection services = new();
         // 基础 Blazor Desktop 支持
         services.AddWpfBlazorWebView();
