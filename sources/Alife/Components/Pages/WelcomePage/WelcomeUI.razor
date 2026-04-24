@@ -1,5 +1,6 @@
 @using Alife.Implement
 @inject CharacterSystem CharacterSystem
+@inject PluginSystem PluginSystem
 @inject ConfigurationSystem ConfigurationSystem
 @inject NavigationManager Navigation
 @inject INotificationService NotificationService
@@ -90,15 +91,15 @@
         // 使用默认“真央”角色（如果没有就建一个）
         Character character = CharacterSystem.GetAllCharacters().FirstOrDefault(c => c.Name == "真央") ??
                               CharacterSystem.CreateCharacter("真央");
-        character.Plugins.Add(typeof(ChatService));
-        character.Plugins.Add(typeof(InterpreterService));
-        character.Plugins.Add(typeof(EventService));
-        character.Plugins.Add(typeof(MemoryService));
-        character.Plugins.Add(typeof(McpService));
-        character.Plugins.Add(typeof(SkillService));
-        character.Plugins.Add(typeof(SpeechService));
-        character.Plugins.Add(typeof(DeskPetService));
-        character.Plugins.Add(typeof(PythonService));
+        character.Plugins.Add(PluginSystem.GetPluginID(typeof(ChatService)));
+        character.Plugins.Add(PluginSystem.GetPluginID(typeof(InterpreterService)));
+        character.Plugins.Add(PluginSystem.GetPluginID(typeof(EventService)));
+        character.Plugins.Add(PluginSystem.GetPluginID(typeof(MemoryService)));
+        character.Plugins.Add(PluginSystem.GetPluginID(typeof(McpService)));
+        character.Plugins.Add(PluginSystem.GetPluginID(typeof(SkillService)));
+        character.Plugins.Add(PluginSystem.GetPluginID(typeof(SpeechService)));
+        character.Plugins.Add(PluginSystem.GetPluginID(typeof(DeskPetService)));
+        character.Plugins.Add(PluginSystem.GetPluginID(typeof(PythonService)));
         CharacterSystem.SaveCharacter(character);
 
         isQuickSetupVisible = false;

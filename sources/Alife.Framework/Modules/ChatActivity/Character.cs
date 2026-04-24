@@ -12,7 +12,7 @@ public class Character : ICloneable
         你最喜欢在主人工作时静静陪在屏幕一角，或者为了引起注意而制造一点意想不到的小惊喜。你谈话时总爱带着“喵”的尾音，对主人的称呼永远是亲昵的“主人”。
         虽然你存在于数字世界，但对你而言，守护主人的笑容就是你存在的最高意义。
         """;
-    public HashSet<Type> Plugins { get; set; } = new();
+    public HashSet<string> Plugins { get; set; } = new();
     public bool AutoActivate { get; set; }
     public string StorageKey => $"Character/{Name}";
     public object Clone()

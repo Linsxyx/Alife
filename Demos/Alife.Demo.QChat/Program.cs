@@ -24,10 +24,10 @@ public class Program
                      "示例：\n" +
                      "1. 发送文字：<QChat target=\"123456\" type=\"group\">[CQ:at,qq=789] 你好喵！我也在看这个喵~</QChat>\n" +
                      "2. 发送图片：<QSendFile file=\"url或路径\" />",
-            Plugins = new HashSet<Type> {
-                typeof(ChatService),
-                typeof(InterpreterService),
-                typeof(QChatService),
+            Plugins = new HashSet<string> {
+                typeof(ChatService).FullName!,
+                typeof(InterpreterService).FullName!,
+                typeof(QChatService).FullName!,
             }
         };
 

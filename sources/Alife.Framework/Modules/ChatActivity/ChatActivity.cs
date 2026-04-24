@@ -3,11 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-
 using Microsoft.SemanticKernel.ChatCompletion;
 using Newtonsoft.Json.Linq;
 using System.Text;
-
 
 
 namespace Alife.Framework;
@@ -17,10 +15,10 @@ public class ChatActivity : IAsyncDisposable
     public static async Task<ChatActivity> Create(
         Character character,
         ConfigurationSystem configurationSystem,
+        PluginSystem pluginSystem,
         IProgress<(string, float)>? progress = null,
         object[]? appendServices = null)
     {
-
         //创建服务容器
         ServiceCollection extensionServiceBuilder = new();
         //添加系统服务
@@ -30,7 +28,11 @@ public class ChatActivity : IAsyncDisposable
                 extensionServiceBuilder.AddSingleton(appendService.GetType(), appendService);
         }
         //添加插件服务
-        foreach (Type pluginType in character.Plugins.OrderBy(type => type.GetCustomAttribute<PluginAttribute>()?.LaunchOrder))
+
+        Type[] pluginTypes = character.Plugins
+            .Select(pluginID => pluginSystem.GetPlugin(pluginID))
+            .Where(t => t != null).Cast<Type>().ToArray();
+        foreach (Type pluginType in pluginTypes.OrderBy(type => type.GetCustomAttribute<PluginAttribute>()?.LaunchOrder))
             extensionServiceBuilder.AddSingleton(pluginType);
         ServiceProvider extensionService = extensionServiceBuilder.BuildServiceProvider();
 
@@ -114,7 +116,7 @@ public class ChatActivity : IAsyncDisposable
 
         // 收集所有插件提供的执行参数（如思考模式）
         OpenAIPromptExecutionSettings executionSettings = new();
-        foreach (var plugin in plugins.OfType<IProvideExecutionSettings>())
+        foreach (IProvideExecutionSettings plugin in plugins.OfType<IProvideExecutionSettings>())
             plugin.ProvideSettings(executionSettings);
 
         ChatCompletionAgent llmAgent = new() {
@@ -138,7 +140,7 @@ public class ChatActivity : IAsyncDisposable
             await pluginInstance.StartAsync(kernelService, this);
         }
     }
-    
+
     public IEnumerable<string> GetImplicitContext()
     {
         return kernelService.Plugins.GetFunctionsMetadata()

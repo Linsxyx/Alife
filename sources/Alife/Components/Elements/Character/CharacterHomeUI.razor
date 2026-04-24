@@ -1,4 +1,4 @@
-﻿@using System.Reflection
+@using System.Reflection
 @using Alife.Components.Elements.Character
 @using Alife.Components.Elements.Utility
 @inject PluginSystem PluginSystem
@@ -185,7 +185,7 @@
     {
         if (Character != null)
         {
-            pluginIDs = Character.Plugins.Select(plugin => PluginSystem.GetPluginID(plugin)).ToHashSet();
+            pluginIDs = Character.Plugins.ToHashSet();
             activity = ChatActivitySystem.GetAllChatActivities().FirstOrDefault(a => a.Character.Name == Character.Name);
             UpdateState();
         }
@@ -219,7 +219,7 @@
         isSaving = true;
         try
         {
-            Character.Plugins = pluginIDs.Select(id => PluginSystem.GetPlugin(id)).Where(t => t != null).Cast<Type>().ToHashSet();
+            Character.Plugins = pluginIDs.ToHashSet();
             CharacterSystem.SaveCharacter(Character);
 
             _ = NotificationService.Success(new NotificationConfig { Message = "角色配置已成功保存！" });
