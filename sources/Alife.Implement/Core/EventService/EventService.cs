@@ -13,7 +13,7 @@ public class EventServiceData
     public int UpdateInterval { get; set; } = 90;
     public int UpdateRandomOffset { get; set; } = 30;
 }
-[Plugin("系统事件", "让AI可以获取到各种系统事件的提醒。", LaunchOrder = 1000, ConfigurationUIType = typeof(EventServiceUI))]
+[Plugin("系统事件", "让AI可以获取到各种系统事件的提醒。", LaunchOrder = 1000, EditorUI = typeof(EventServiceUI))]
 [Description("你能够接收到系统事件（如开始、结束、周期报点），并可选的控制这些信息的收发。")]
 public class EventService : InteractivePlugin<EventService>, IConfigurable<EventServiceData>, ITimeIterative
 {

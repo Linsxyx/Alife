@@ -31,9 +31,9 @@
     {
         var attr = PluginType.GetCustomAttribute<PluginAttribute>();
 
-        if (attr?.ConfigurationUIType != null)
+        if (attr?.EditorUI != null)
         {
-            customUIType = attr.ConfigurationUIType;
+            customUIType = attr.EditorUI;
             customUIParameters = new Dictionary<string, object> {
                 { "PluginType", PluginType }
             };

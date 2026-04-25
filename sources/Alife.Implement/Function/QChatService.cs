@@ -218,8 +218,7 @@ public class QChatService :
 
     void ITimeIterative.Update(ref int seconds)
     {
-        //每隔10秒推送消息
-        if (seconds > 10)
+        if (seconds > 15)
         {
             Dictionary<long, string> batches = new();
             lock (groupBuffers)

@@ -29,7 +29,7 @@ public class ChatServiceConfig : ICloneable
 [Plugin(
     "对话能力", "基于OpenAI协议的对话模型功能接入。",
     url: "https://www.deepseek.com/",
-    configurationUIType: typeof(ChatServiceUI)
+    editorUI: typeof(ChatServiceUI)
 )]
 public class ChatService : Plugin, IConfigurable<ChatServiceConfig>, IProvideExecutionSettings
 {

@@ -1,6 +1,7 @@
 @using System.Reflection
 @using Newtonsoft.Json
 @inject ConfigurationSystem ConfigurationSystem
+@inject INotificationService NotificationService
 
 <div style="display: flex; flex-direction: column; gap: 24px;">
     <!-- 顶部元数据 -->
@@ -15,85 +16,65 @@
                 <Tag Color="@("blue")">启动顺序: @PluginAttr.LaunchOrder</Tag>
             }
         </Flex>
-        
+
         <Paragraph Style="margin-top: 16px; color: rgba(0,0,0,0.65);">
             @PluginAttr.Description
         </Paragraph>
 
         @if (!string.IsNullOrEmpty(PluginAttr.Url))
         {
-            <a href="@PluginAttr.Url" target="_blank"><Icon Type="link" /> 项目文档</a>
+            <a href="@PluginAttr.Url" target="_blank">
+                <Icon Type="link"/>
+                项目文档</a>
         }
     </div>
 
     <!-- 详情配置 -->
     <div style="padding-top: 16px;">
-        @if (PluginAttr.ConfigurationUIType != null && typeof(IComponent).IsAssignableFrom(PluginAttr.ConfigurationUIType))
+        @if (PluginAttr.EditorUI != null && typeof(IComponent).IsAssignableFrom(PluginAttr.EditorUI))
         {
-            <DynamicComponent Type="PluginAttr.ConfigurationUIType" Parameters="GetParameters()" />
+            <DynamicComponent Type="PluginAttr.EditorUI" Parameters="@(GetParameters())"/>
         }
         else
         {
-            <TextArea AutoSize="true" MinRows="10" Style="font-family: monospace;" @bind-Value="jsonConfig" Disabled="@IsReadOnly" />
-            <Button Type="@ButtonType.Primary" OnClick="SaveJsonConfig" Style="margin-top: 16px;" Block Disabled="@IsReadOnly">保存配置</Button>
+            @(DefaultUI)
         }
     </div>
 </div>
 
 @code {
     [Parameter] public Type PluginType { get; set; } = null!;
-    [Parameter] public Character? Character { get; set; }
     [Parameter] public ChatActivity? ChatActivity { get; set; }
-    [Parameter] public bool IsReadOnly { get; set; }
+    [Parameter] public Character? Character { get; set; }
 
-    private PluginAttribute PluginAttr => PluginType.GetCustomAttribute<PluginAttribute>()!;
-    private string jsonConfig = "{}";
+    PluginAttribute PluginAttr => PluginType.GetCustomAttribute<PluginAttribute>()!;
+    string jsonConfig = "{}";
+    Plugin? Plugin { get; set; }
+    RenderFragment DefaultUI => __builder => {
+        @if (ConfigurationSystem.CanConfiguration(PluginType))
+        {
+            <TextArea AutoSize="true" MinRows="10" Style="font-family: monospace;" @bind-Value="jsonConfig"
+                      Disabled="@(ChatActivity != null)"></TextArea>
+            <Button Type="@ButtonType.Primary" OnClick="@(SaveConfiguration)" Style="margin-top: 16px;" Block
+                    Disabled="@(ChatActivity != null)">保存配置
+            </Button>
+        }
+    };
 
     protected override void OnParametersSet()
     {
-        if (PluginAttr.ConfigurationUIType == null)
-        {
-            jsonConfig = ConfigurationSystem.GetConfigurationJson(PluginType)?.ToString(Formatting.Indented) ?? "{}";
-        }
+        if (ChatActivity != null)
+            Plugin = ChatActivity.PluginService.GetService(PluginType) as Plugin;
+
+        LoadConfiguration();
     }
-
-    private Dictionary<string, object> GetParameters()
+    void LoadConfiguration()
     {
-        var parameters = new Dictionary<string, object>
-        {
-            { "PluginType", PluginType }
-        };
-
-        if (PluginAttr.ConfigurationUIType != null)
-        {
-            if (Character != null && HasParameter(PluginAttr.ConfigurationUIType, "Character"))
-            {
-                parameters.Add("Character", Character);
-            }
-
-            if (ChatActivity != null && HasParameter(PluginAttr.ConfigurationUIType, "ChatActivity"))
-            {
-                parameters.Add("ChatActivity", ChatActivity);
-            }
-
-            if (HasParameter(PluginAttr.ConfigurationUIType, "IsReadOnly"))
-            {
-                parameters.Add("IsReadOnly", IsReadOnly);
-            }
-        }
-
-        return parameters;
+        jsonConfig = ConfigurationSystem.GetConfigurationJson(PluginType)?.ToString(Formatting.Indented) ?? "{}";
     }
-
-    private bool HasParameter(Type type, string propertyName)
+    void SaveConfiguration()
     {
-        var property = type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
-        return property != null && property.GetCustomAttribute<ParameterAttribute>() != null;
-    }
-
-    private void SaveJsonConfig()
-    {
-        try 
+        try
         {
             Type type = ConfigurationSystem.GetConfigurationType(PluginType)!;
             object configuration = JsonConvert.DeserializeObject(jsonConfig, type)!;
@@ -106,5 +87,16 @@
         }
     }
 
-    [Inject] private INotificationService NotificationService { get; set; } = null!;
+    private Dictionary<string, object?> GetParameters()
+    {
+        Dictionary<string, object?> parameters = new() {
+            { "PluginType", PluginType },
+            { "Character", Character },
+            { "ChatActivity", ChatActivity },
+            { "Plugin", Plugin },
+            { "DefaultUI", DefaultUI },
+        };
+        return parameters;
+    }
+
 }

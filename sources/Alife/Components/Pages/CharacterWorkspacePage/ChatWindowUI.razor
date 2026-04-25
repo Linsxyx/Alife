@@ -194,22 +194,33 @@
         element.dataset.scrollSetup = "true";
 
         let isAtBottom = true;
+        let lastHeight = element.scrollHeight;
+
         element.addEventListener('scroll', () => {
-            isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
+            // 只有当内容高度稳定时（说明是用户在滚，而非内容在增加），才更新 isAtBottom
+            if (Math.abs(element.scrollHeight - lastHeight) < 5) {
+                isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 100;
+            }
         });
 
         const observer = new MutationObserver(() => {
             if (isAtBottom) {
+                element.scrollTop = element.scrollHeight;
+                // 补偿性滚动
                 setTimeout(() => {
                     if (isAtBottom) element.scrollTop = element.scrollHeight;
                 }, 10);
             }
+            lastHeight = element.scrollHeight;
         });
         observer.observe(element, {childList: true, subtree: true, characterData: true});
 
         const visibilityObserver = new IntersectionObserver((entries) => {
             if (entries[0].isIntersecting) {
-                setTimeout(() => element.scrollTop = element.scrollHeight, 10);
+                setTimeout(() => {
+                    element.scrollTop = element.scrollHeight;
+                    lastHeight = element.scrollHeight;
+                }, 10);
             }
         });
         visibilityObserver.observe(element);

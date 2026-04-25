@@ -216,14 +216,32 @@ public class XmlHandlerTable
     public string Document()
     {
         StringBuilder sb = new();
-        foreach (XmlHandler handler in xmlHandlers)
+        foreach (XmlFunction function in xmlFunctions.Values.SelectMany(set => set))
         {
-            if (handler.IsImplicit)
-                continue;
-            sb.AppendLine(Document(handler));
+            sb.Append($"- <{function.Name}");
+            foreach (XmlParameter param in function.Parameters)
+            {
+                string pDesc = string.IsNullOrEmpty(param.Description) ? "" : $"（{param.Description}）";
+                sb.Append($" {param.Name}=\"{param.Type}\"{pDesc}");
+            }
+
+            if (function.ContentName != null)
+            {
+                sb.Append(">");
+                string cDesc = string.IsNullOrEmpty(function.ContentDescription) ? "" : $"（{function.ContentDescription}）";
+                sb.Append($"{function.ContentName}{cDesc}</{function.Name}>");
+            }
+            else
+            {
+                sb.Append(" />");
+            }
+
+            if (string.IsNullOrEmpty(function.Description) == false)
+                sb.Append($"：{function.Description}");
+
             sb.AppendLine();
         }
-        return sb.ToString().TrimEnd();
+        return sb.ToString();
     }
 
     public string Document(XmlHandler xmlHandler)

@@ -16,7 +16,7 @@ public class McpPluginConfig
     public List<McpServerConfig> Servers { get; set; } = new();
 }
 [Plugin("MCP服务", "让AI可以通过Model Context Protocol接入外部工具。",
-    configurationUIType: typeof(McpServiceUI))]
+    editorUI: typeof(McpServiceUI))]
 public class McpService : InteractivePlugin<McpService>, IConfigurable<McpPluginConfig>
 {
     public McpPluginConfig? Configuration { get; set; }

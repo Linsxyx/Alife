@@ -1,6 +1,5 @@
 using Alife.Basic;
 using System.ComponentModel;
-using System.Diagnostics;
 using Alife.Framework;
 using Alife.Function.Interpreter;
 using Alife.Function.Speech;
@@ -9,12 +8,23 @@ using NAudio.CoreAudioApi;
 
 namespace Alife.Implement;
 
-[Plugin("语音对话", "为AI增加语音识别和语音转文字输出的能力。", ConfigurationUIType = typeof(SpeechServiceUI))]
-[Description("此服务让你获得能将文字以语音形式输出的能力。")]
-public class SpeechService : InteractivePlugin<SpeechService>, IAsyncDisposable, ITimeIterative
+public partial class SpeechService
 {
-    public static SpeechRecognizer ActiveRecognizer => Recognizer;
-    public static SpeechSynthesizer ActiveSynthesizer => Synthesizer;
+    public static readonly SpeechRecognizer Recognizer;
+    public static readonly SpeechSynthesizer Synthesizer;
+    public static bool IsRecognizing => Recognizer.IsRecognizing;
+    public static bool IsSynthesizing => Synthesizer.IsSpeaking;
+
+    static SpeechService()
+    {
+        Recognizer = new SpeechRecognizer();
+        Synthesizer = new SpeechSynthesizer();
+    }
+}
+[Plugin("语音对话", "为AI增加语音识别和语音转文字输出的能力。", EditorUI = typeof(SpeechServiceUI))]
+[Description("此服务让你获得能将文字以语音形式输出的能力。")]
+public partial class SpeechService : InteractivePlugin<SpeechService>, IAsyncDisposable, ITimeIterative
+{
     [XmlFunction("say", -10)]
     [Description("使用语音的方式向用户发送消息。")]
     public async Task Say(XmlExecutorContext context, [XmlContent] string content)
@@ -30,18 +40,13 @@ public class SpeechService : InteractivePlugin<SpeechService>, IAsyncDisposable,
         if (hasHeadphones == false)
         {
             if (context.CallMode == CallMode.Opening)
-            {
-                //当没有耳机播放音频时，需要关闭语音识别，避免冲突
-                if (Recognizer.IsRecognizing)
-                    Recognizer.Stop();
-            }
+                TryStopRecognition();
             else if (context.CallMode == CallMode.Closing)
             {
                 //当停止说话时，等待当前语音结束后，恢复语音识别
                 if (Synthesizer.IsSpeaking)
                     await Synthesizer.LastSpeaking;
-                if (Recognizer.IsRecognizing == false)
-                    Recognizer.Start();
+                TryStartRecognition();
             }
         }
 
@@ -95,16 +100,9 @@ public class SpeechService : InteractivePlugin<SpeechService>, IAsyncDisposable,
         });
     }
 
-    static readonly SpeechRecognizer Recognizer;
-    static readonly SpeechSynthesizer Synthesizer;
-    static SpeechService()
-    {
-        Recognizer = new SpeechRecognizer();
-        Synthesizer = new SpeechSynthesizer();
-    }
+    public bool IsReceiving { get; set; } = true;
 
     readonly MMDeviceEnumerator enumerator = new();
-
     CancellationTokenSource? audioFileSynthesizingCancellation;
     bool hasHeadphones;
 
@@ -122,9 +120,8 @@ public class SpeechService : InteractivePlugin<SpeechService>, IAsyncDisposable,
         await base.StartAsync(kernel, chatActivity);
 
         //打开语音识别
-        if (Recognizer.IsRecognizing == false)
-            Recognizer.Start();
-        
+        TryStartRecognition();
+
         Recognizer.Recognized += OnRecognized;
     }
     public override async Task DestroyAsync()
@@ -141,40 +138,52 @@ public class SpeechService : InteractivePlugin<SpeechService>, IAsyncDisposable,
                         device.FriendlyName.Contains("Headset") ||
                         device.FriendlyName.Contains("Earphone");
 
-        if (hasHeadphones && Recognizer.IsRecognizing == false)
+        if (hasHeadphones)
         {
-            Recognizer.Start();
-            SendNotification("语音输入常驻开启", "检测到耳机，已通过 SpeechService 开启实时识别。");
+            TryStartRecognition();
 
-            void SendNotification(string title, string message)
-            {
-                try
-                {
-                    string script = $"$Title='{title}'; $Message='{message}'; " +
-                                    "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; " +
-                                    "$Template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); " +
-                                    "$TextNodes = $Template.GetElementsByTagName('text'); " +
-                                    "$TextNodes.Item(0).AppendChild($Template.CreateTextNode($Title)) | Out-Null; " +
-                                    "$TextNodes.Item(1).AppendChild($Template.CreateTextNode($Message)) | Out-Null; " +
-                                    "$Toast = [Windows.UI.Notifications.ToastNotification]::new($Template); " +
-                                    "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('AlifeSpeechAssist').Show($Toast);";
-
-                    Process.Start(new ProcessStartInfo {
-                        FileName = "powershell",
-                        Arguments = $"-Command \"{script}\"",
-                        CreateNoWindow = true,
-                        UseShellExecute = false
-                    });
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Notification failed: {ex.Message}");
-                }
-            }
+            // SendNotification("语音输入常驻开启", "检测到耳机，已通过 SpeechService 开启实时识别。");
+            // void SendNotification(string title, string message)
+            // {
+            //     try
+            //     {
+            //         string script = $"$Title='{title}'; $Message='{message}'; " +
+            //                         "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; " +
+            //                         "$Template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); " +
+            //                         "$TextNodes = $Template.GetElementsByTagName('text'); " +
+            //                         "$TextNodes.Item(0).AppendChild($Template.CreateTextNode($Title)) | Out-Null; " +
+            //                         "$TextNodes.Item(1).AppendChild($Template.CreateTextNode($Message)) | Out-Null; " +
+            //                         "$Toast = [Windows.UI.Notifications.ToastNotification]::new($Template); " +
+            //                         "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('AlifeSpeechAssist').Show($Toast);";
+            //
+            //         Process.Start(new ProcessStartInfo {
+            //             FileName = "powershell",
+            //             Arguments = $"-Command \"{script}\"",
+            //             CreateNoWindow = true,
+            //             UseShellExecute = false
+            //         });
+            //     }
+            //     catch (Exception ex)
+            //     {
+            //         Debug.WriteLine($"Notification failed: {ex.Message}");
+            //     }
+            // }
         }
+    }
+
+    public void TryStartRecognition()
+    {
+        if (Recognizer.IsRecognizing == false)
+            Recognizer.Start();
+    }
+    public void TryStopRecognition()
+    {
+        if (Recognizer.IsRecognizing)
+            Recognizer.Stop();
     }
     void OnRecognized(string text)
     {
-        Chat(text);
+        if (IsReceiving)
+            Chat(text);
     }
 }
