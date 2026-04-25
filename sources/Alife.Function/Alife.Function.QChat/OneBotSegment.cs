@@ -8,6 +8,44 @@ namespace Alife.Function.QChat;
 public static class OneBotSegment
 {
     /// <summary>
+    /// 检查消息是否提到特定的 QQ 号
+    /// </summary>
+    public static bool IsAtMe(string content, long selfId)
+    {
+        if (string.IsNullOrEmpty(content)) return false;
+        return content.Contains($"[CQ:at,qq={selfId}]") || content.Contains($"[CQ:at,qq={selfId},");
+    }
+    public static bool IsFile(string message)
+    {
+        return message.Contains("[CQ:file");
+    }
+
+    /// <summary>
+    /// 尝试从消息中提取 CQ 码中的 file_id
+    /// </summary>
+    public static string? GetFileId(string message)
+    {
+        Match match = Regex.Match(message, @"\[CQ:file,.*?file_id=(?<id>[^,\]]+)");
+        if (match.Success == false) return null;
+        return match.Groups["id"].Value;
+    }
+    public static string? GetFileName(string message)
+    {
+        Match match = Regex.Match(message, @"file=(?<name>[^,\]]+)");
+        if (match.Success == false) return null;
+        return match.Groups["name"].Value;
+    }
+    public static long GetFileSize(string message)
+    {
+        Match match = Regex.Match(message, @"file_size=(?<size>\d+)");
+        if (match.Success == false) return -1;
+        if (long.TryParse(match.Groups["size"].Value, out long result))
+            return result;
+        return -1;
+    }
+
+
+    /// <summary>
     /// 构造 At 消息片段
     /// </summary>
     public static string At(long userId) => $"[CQ:at,qq={userId}]";
@@ -22,29 +60,6 @@ public static class OneBotSegment
     /// </summary>
     public static string Image(string file) => $"[CQ:image,file={file}]";
 
-    /// <summary>
-    /// 尝试从消息中提取 CQ 码中的 file_id
-    /// </summary>
-    public static bool TryGetFileId(string message, out string fileId)
-    {
-        fileId = string.Empty;
-        if (string.IsNullOrEmpty(message)) return false;
-
-        Match match = Regex.Match(message, @"\[CQ:file,.*?file_id=(?<id>[^,\]]+)");
-        if (match.Success == false) return false;
-
-        fileId = match.Groups["id"].Value;
-        return true;
-    }
-
-    /// <summary>
-    /// 检查消息是否提到特定的 QQ 号
-    /// </summary>
-    public static bool IsAt(string content, long selfId)
-    {
-        if (string.IsNullOrEmpty(content)) return false;
-        return content.Contains($"[CQ:at,qq={selfId}]") || content.Contains($"[CQ:at,qq={selfId},");
-    }
 
     /// <summary>
     /// 从消息中提取所有图片 URL
@@ -72,4 +87,3 @@ public static class OneBotSegment
         return Regex.Replace(message, @"\[CQ:.*?\]", "").Trim();
     }
 }
-

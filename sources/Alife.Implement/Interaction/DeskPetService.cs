@@ -12,7 +12,7 @@ namespace Alife.Implement;
 public class DeskPetService : InteractivePlugin<DeskPetService>, IAsyncDisposable
 {
     [XmlFunction("say")]
-    [Description("发送消息：显示一段文本字幕。示例: <say>你好</say>")]
+    [Description("显示一段文本字幕。")]
     public async Task PetBubble(XmlExecutorContext context, [XmlContent] string content)
     {
         if (context.CallMode == CallMode.Reset)
@@ -40,7 +40,7 @@ public class DeskPetService : InteractivePlugin<DeskPetService>, IAsyncDisposabl
         }
     }
     [XmlFunction("exp")]
-    [Description("控制表情：切换当前显示的表情。具体类型见补充信息。")]
+    [Description($"表演一个表情。具体选项见 {nameof(DeskPetService)} 补充信息。")]
     public void PetExpression(XmlExecutorContext context, string exp)
     {
         if (context.CallMode != CallMode.OneShot)
@@ -52,7 +52,7 @@ public class DeskPetService : InteractivePlugin<DeskPetService>, IAsyncDisposabl
         client.PlayExpression(exp);
     }
     [XmlFunction("mtn")]
-    [Description("执行动作：播放预设动画。具体类型见补充信息。")]
+    [Description($"表演一个动作。具体选项见 {nameof(DeskPetService)} 补充信息。")]
     public void PetMotion(XmlExecutorContext context, string mtn)
     {
         if (context.CallMode != CallMode.OneShot)
@@ -66,7 +66,7 @@ public class DeskPetService : InteractivePlugin<DeskPetService>, IAsyncDisposabl
         client.PlayMotion(motion.Group, motion.Index);
     }
     [XmlFunction("move")]
-    [Description("在屏幕上进行相对位置位移（可以连续调用）。示例: <pmove x=\"200\" y=\"100\" duration=\"500\" /> - 表示在0.5秒内从当前位置向右移200像素，下移100像素")]
+    [Description("在屏幕上进行相对位置位移（可以连续调用）。")]
     public Task PetMove(XmlExecutorContext context, double x = 0, double y = 0, int duration = 1000)
     {
         if (context.CallMode != CallMode.OneShot)
@@ -75,7 +75,7 @@ public class DeskPetService : InteractivePlugin<DeskPetService>, IAsyncDisposabl
         return client.MoveAsync(x, y, duration);
     }
     [XmlFunction("pos")]
-    [Description("请求系统返回当前所在位置（使用后需要等待系统响应，所以只能放句尾使用）。")]
+    [Description("获取当前所在位置（使用后需等待系统响应，只能放句尾使用）。")]
     public async Task PetPos(XmlExecutorContext context)
     {
         if (context.CallMode != CallMode.OneShot)

@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Text;
-using System.Text.RegularExpressions;
 using Alife.Basic;
 using Alife.Framework;
 using Alife.Function.Interpreter;
@@ -24,28 +23,28 @@ public class QChatService :
 {
     [XmlFunction]
     [Description("发送文本消息。（附加说明：群聊时可以用“[CQ:at,qq=发送者ID]”来显式回复某人）")]
-    public async Task QChat(XmlExecutorContext ctx, [Description("通过私聊还是群聊发送")] OneBotMessageType type, [Description("QQ号或群号")] long target, [XmlContent] string _)
+    public async Task QChat(XmlExecutorContext ctx, [Description("通过私聊还是群聊发送")] OneBotMessageType type, [Description("QQ号或群号")] long targetID, [XmlContent] string _)
     {
         if (ctx.CallMode != CallMode.Closing)
             return;
         string content = ctx.FullContent.Trim();
         if (string.IsNullOrEmpty(content))
             return;
-        if (target == 0)
-            throw new ArgumentException("目标不能为空！", nameof(target));
+        if (targetID == 0)
+            throw new ArgumentException("目标不能为空！", nameof(targetID));
 
         if (type == OneBotMessageType.Group)
         {
-            OnAIGroupActivity();
-            await oneBotClient.SendGroupMessage(target, content);
+            OnGroupActivity(targetID);
+            await oneBotClient.SendGroupMessage(targetID, content);
         }
         else
-            await oneBotClient.SendPrivateMessage(target, content);
+            await oneBotClient.SendPrivateMessage(targetID, content);
     }
 
     [XmlFunction]
     [Description("发送图片消息。支持表情库相对路径、本地绝对路径或图片 URL。如果是文件夹则从中随机抽取一张。")]
-    public async Task QImage(XmlExecutorContext ctx, [Description("通过私聊还是群聊发送")] OneBotMessageType type, [Description("QQ号或群号")] long target, [Description("图片路径、URL或表情库名称")] string file)
+    public async Task QImage(XmlExecutorContext ctx, [Description("通过私聊还是群聊发送")] OneBotMessageType type, [Description("QQ号或群号")] long targetID, [Description("图片路径、URL或表情库名称")] string file)
     {
         if (ctx.CallMode != CallMode.Closing && ctx.CallMode != CallMode.OneShot) return;
         file = file.Trim().Replace('\\', '/');
@@ -89,16 +88,16 @@ public class QChatService :
 
         if (type == OneBotMessageType.Group)
         {
-            OnAIGroupActivity();
-            await oneBotClient.SendGroupImage(target, file);
+            OnGroupActivity(targetID);
+            await oneBotClient.SendGroupImage(targetID, file);
         }
         else
-            await oneBotClient.SendPrivateImage(target, file);
+            await oneBotClient.SendPrivateImage(targetID, file);
     }
 
     [XmlFunction]
     [Description("发送文件。")]
-    public async Task QFile(XmlExecutorContext ctx, [Description("通过私聊还是群聊发送")] OneBotMessageType type, [Description("QQ号或群号")] long target, [Description("文件本地绝对路径")] string file)
+    public async Task QFile(XmlExecutorContext ctx, [Description("通过私聊还是群聊发送")] OneBotMessageType type, [Description("QQ号或群号")] long targetID, [Description("文件本地绝对路径")] string file)
     {
         if (ctx.CallMode != CallMode.Closing && ctx.CallMode != CallMode.OneShot) return;
         file = file.Trim().Replace('\\', '/');
@@ -107,11 +106,11 @@ public class QChatService :
         string fileName = Path.GetFileName(file);
         if (type == OneBotMessageType.Group)
         {
-            OnAIGroupActivity();
-            await oneBotClient.UploadGroupFile(target, file, fileName);
+            OnGroupActivity(targetID);
+            await oneBotClient.UploadGroupFile(targetID, file, fileName);
         }
         else
-            await oneBotClient.UploadPrivateFile(target, file, fileName);
+            await oneBotClient.UploadPrivateFile(targetID, file, fileName);
     }
 
     [XmlFunction]
@@ -127,19 +126,20 @@ public class QChatService :
     }
 
     [XmlFunction]
-    [Description("设置群消息监听开关。")]
-    public void QGroupSwitch(XmlExecutorContext ctx, bool enabled)
+    [Description("设置群消息开关。")]
+    public void QGroup(XmlExecutorContext ctx, long groupID, bool enabled)
     {
         if (ctx.CallMode != CallMode.Closing && ctx.CallMode != CallMode.OneShot) return;
-        QGroupSwitch(enabled);
+        QGroup(groupID, enabled);
     }
+
 
     public QChatConfig? Configuration { get; set; }
 
     OneBotClient oneBotClient = null!;
-    readonly Dictionary<long, StringBuilder> groupBuffers = new();
-    DateTime lastGroupActivityTime;
-    bool isGroupEnabled;
+    readonly StringBuilder messageBuffers = new();
+    readonly Dictionary<long, bool> groupEnabled = new();
+    readonly Dictionary<long, DateTime> groupActivityTime = new();
 
     public override async Task AwakeAsync(AwakeContext context)
     {
@@ -194,13 +194,13 @@ public class QChatService :
                          ## 群聊环境说明
                          1. 在群聊环境，你需要聚焦于**和你有直接关联**或**你十分感兴趣**的消息，对于仅显示为[动画表情]或[图片]的消息不用互动，注意不要刷屏。
                          2. 你可能会同时收到多条消息，请根据上下文自主决策该回复哪些消息，也可以选择不回复任何消息。
-                         
+
                          ## 注意事项
                          - 在群聊时不要随便回复每个消息，要用先思考是否需要回复，是否值得回复，否则会造成刷屏。
                          - 如果收到的消息中包含 [CQ:image,url=...]，如果你有视觉感知功能，你可以尝试视图并传入该 URL 来“看见”图片内容。
                          """;
 
-        XmlHandler xmlHandler = new XmlHandler(this, prompt, false);
+        XmlHandler xmlHandler = new XmlHandler(this, prompt);
         interpreterService.RegisterHandler(xmlHandler);
     }
     public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
@@ -220,27 +220,24 @@ public class QChatService :
     {
         if (seconds > 15)
         {
-            Dictionary<long, string> batches = new();
-            lock (groupBuffers)
+            lock (messageBuffers)
             {
-                if (groupBuffers.Count > 0)
-                {
-                    foreach (KeyValuePair<long, StringBuilder> pair in groupBuffers)
-                        batches[pair.Key] = pair.Value.ToString();
-                    groupBuffers.Clear();
-                }
+                string cachedMessage = messageBuffers.ToString();
+                messageBuffers.Clear();
+                if (string.IsNullOrEmpty(cachedMessage) == false)
+                    Poke(cachedMessage);
             }
-            foreach (KeyValuePair<long, string> pair in batches)
-                Poke(pair.Value);
 
             seconds = 0;
         }
 
-        // 自动关闭检查：如果群监听开启且超过 5 分钟没有 AI 活动
-        if (isGroupEnabled && DateTime.Now - lastGroupActivityTime > TimeSpan.FromMinutes(7))
+        foreach ((long group, bool enabled) in groupEnabled)
         {
-            QGroupSwitch(false);
-            Poke("由于长时间没有发言，群聊消息监听已关闭。");
+            if (enabled && DateTime.Now - groupActivityTime.GetValueOrDefault(group) > TimeSpan.FromMinutes(7))
+            {
+                QGroup(group, false);
+                Poke($"由于长时间没有发言，群 {group} 消息已关闭。");
+            }
         }
     }
 
@@ -252,30 +249,17 @@ public class QChatService :
         string message = msg.RawMessage;
 
         // 单独处理文件消息
-        if (OneBotSegment.TryGetFileId(message, out string fileId))
+        if (OneBotSegment.IsFile(message))
         {
-            // 提取文件名 (file=...) 和 大小 (file_size=...)，虽然主要靠 GetFile 换取，但尝试先拿基本信息
-            string fileName = "未知文件";
-            long fileSize = 0;
-
-            Match titleMatch = Regex.Match(message, @"file=(?<name>[^,\]]+)");
-            if (titleMatch.Success) fileName = titleMatch.Groups["name"].Value;
-
-            Match sizeMatch = Regex.Match(message, @"file_size=(?<size>\d+)");
-            if (sizeMatch.Success) long.TryParse(sizeMatch.Groups["size"].Value, out fileSize);
-
-            await HandleFileMessage(msg.GroupId, msg.UserId, fileName, fileSize, fileId);
+            await HandleFileMessage(msg);
         }
         else
         {
-            string groupLabel = !string.IsNullOrEmpty(msg.GroupName) ? $"{msg.GroupName}({msg.GroupId})" : msg.GroupId.ToString();
-            string senderName = msg.Sender != null
-                ? (!string.IsNullOrEmpty(msg.Sender.Card) ? msg.Sender.Card : msg.Sender.Nickname)
-                : msg.UserId.ToString();
-
+            string groupLabel = $"{msg.GroupId}({msg.GroupName})";
+            string sayerLabel = $"{msg.UserId}({msg.Sender?.Nickname})";
             string tag = msg.MessageType == OneBotMessageType.Group
-                ? $"[群聊 {groupLabel}, 发言人 {senderName}({msg.UserId})]"
-                : $"[私聊 {senderName}({msg.UserId})]";
+                ? $"[群聊 {groupLabel}, 发言人 {sayerLabel}]"
+                : $"[私聊 {sayerLabel}]";
 
             string formatted = $"{tag} {message}";
 
@@ -286,28 +270,36 @@ public class QChatService :
             else
             {
                 // 被 @ 时激活群聊
-                bool isAtMe = OneBotSegment.IsAt(message, oneBotClient.BotId);
-                if (isAtMe && isGroupEnabled == false)
+                bool isAtMe = OneBotSegment.IsAtMe(message, oneBotClient.BotId);
+                if (isAtMe && groupEnabled.GetValueOrDefault(msg.GroupId) == false)
                 {
-                    QGroupSwitch(true);
-                    Poke("由 @ 引发的群聊消息监听已开启");
+                    QGroup(msg.GroupId, true);
+                    Poke($"由 @ 引发的群 {msg.GroupId} 消息已开启");
                 }
 
                 // 只有群聊开始时接收消息
-                if (isGroupEnabled)
+                if (groupEnabled.GetValueOrDefault(msg.GroupId))
                 {
-                    lock (groupBuffers)
+                    lock (messageBuffers)
                     {
-                        if (groupBuffers.TryGetValue(msg.GroupId, out StringBuilder? sb) == false)
-                            groupBuffers[msg.GroupId] = sb = new StringBuilder();
-                        sb.AppendLine(formatted);
+                        messageBuffers.AppendLine(formatted);
                     }
                 }
             }
         }
     }
-    async Task HandleFileMessage(long groupId, long userId, string fileName, long fileSize, string fileId)
+    async Task HandleFileMessage(OneBotMessageEvent messageEvent)
     {
+        string message = messageEvent.RawMessage;
+        long groupId = messageEvent.GroupId;
+        long userId = messageEvent.UserId;
+        string? fileId = OneBotSegment.GetFileId(message);
+        if (fileId == null) return;
+        string? fileName = OneBotSegment.GetFileName(message);
+        if (fileName == null) return;
+        long fileSize = OneBotSegment.GetFileSize(message);
+        if (fileSize == -1) return;
+
         string source = groupId != 0 ? $"[群聊 {groupId}, 发言人 {userId}]" : $"[私聊 {userId}]";
 
         if (groupId != 0)
@@ -327,18 +319,18 @@ public class QChatService :
             }
         }
     }
-    void OnAIGroupActivity()
+    void OnGroupActivity(long groupID)
     {
-        lastGroupActivityTime = DateTime.Now;
-        if (isGroupEnabled == false)
-            QGroupSwitch(true);
+        groupActivityTime[groupID] = DateTime.Now;
+        if (groupEnabled[groupID] == false)
+            QGroup(groupID, true);
     }
-    void QGroupSwitch(bool enabled)
+    void QGroup(long groupID, bool enabled)
     {
         if (enabled)
-            lastGroupActivityTime = DateTime.Now;
+            groupActivityTime[groupID] = DateTime.Now;
 
-        isGroupEnabled = enabled;
-        Poke($"群消息监听已{(enabled ? "开启" : "关闭")}");
+        groupEnabled[groupID] = enabled;
+        Poke($"群 {groupID} 消息已{(enabled ? "开启" : "关闭")}");
     }
 }
