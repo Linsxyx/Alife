@@ -38,8 +38,7 @@
             </GridCol>
         </GridRow>
 
-        <ConfigSaveUI PluginType="@PluginType" Configuration="@config" CharacterName="@Character?.Name"
-                      OnConfigurationChanged="@(newConfig => { config = (MemoryConfig)newConfig; StateHasChanged(); })" />
+        @ConfigSaveUI((config, newConfig => { config = (MemoryConfig)newConfig; StateHasChanged(); }))
     </Form>
 
     @if (service != null)

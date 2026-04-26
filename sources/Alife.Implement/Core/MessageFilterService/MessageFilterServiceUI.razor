@@ -41,8 +41,7 @@
                 </GridCol>
 
                 <GridCol Span="24" Style="margin-top: 16px;">
-                    <ConfigSaveUI PluginType="@PluginType" Configuration="@config" CharacterName="@Character?.Name"
-                                  OnConfigurationChanged="@(newConfig => { config = (MessageFilterData)newConfig; StateHasChanged(); })" />
+                    @ConfigSaveUI((config, newConfig => { config = (MessageFilterData)newConfig; StateHasChanged(); }))
                 </GridCol>
             </GridRow>
         }

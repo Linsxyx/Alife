@@ -14,4 +14,5 @@ public abstract class PluginUIBase : ComponentBase
     [Parameter] public Plugin? Plugin { get; set; }
 
     [Parameter] public RenderFragment DefaultUI { get; set; } = null!;
+    [Parameter] public RenderFragment<(object Config, Action<object> OnChanged)> ConfigSaveUI { get; set; } = null!;
 }

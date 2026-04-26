@@ -40,8 +40,7 @@
             </FormItem>
         }
 
-        <ConfigSaveUI PluginType="@PluginType" Configuration="@config" CharacterName="@Character?.Name"
-                      OnConfigurationChanged="@(newConfig => { config = (ChatServiceConfig)newConfig; StateHasChanged(); })" />
+        @ConfigSaveUI((config, newConfig => { config = (ChatServiceConfig)newConfig; StateHasChanged(); }))
     </Form>
 
     <Modal Title="探测到的模型列表"

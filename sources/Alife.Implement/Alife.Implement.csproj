@@ -37,7 +37,6 @@
   <ItemGroup>
     <AdditionalFiles Include="Other\EventService\EventServiceUI.razor" />
     <AdditionalFiles Include="Other\SpeechService\SpeechServiceUI.razor" />
-    <AdditionalFiles Include="Standard\Utility\ConfigSaveUI.razor" />
   </ItemGroup>
 
 </Project>

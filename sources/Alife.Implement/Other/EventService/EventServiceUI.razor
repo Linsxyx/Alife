@@ -103,8 +103,7 @@
                     </GridCol>
 
                     <GridCol Span="24">
-                        <ConfigSaveUI PluginType="@PluginType" Configuration="@config" CharacterName="@Character?.Name"
-                                      OnConfigurationChanged="@(newConfig => { config = (EventServiceData)newConfig; StateHasChanged(); })" />
+                        @ConfigSaveUI((config, newConfig => { config = (EventServiceData)newConfig; StateHasChanged(); }))
                     </GridCol>
                 </GridRow>
             </div>

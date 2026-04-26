@@ -61,8 +61,7 @@
     }
 </Drawer>
 
-    <ConfigSaveUI PluginType="@PluginType" Configuration="@config" CharacterName="@Character?.Name"
-                  OnConfigurationChanged="@(newConfig => { config = (McpPluginConfig)newConfig; StateHasChanged(); })" />
+    @ConfigSaveUI((config, newConfig => { config = (McpPluginConfig)newConfig; StateHasChanged(); }))
 </div>
 
 @code {

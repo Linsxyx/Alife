@@ -246,11 +246,7 @@
             </GridRow>
         </Card>
 
-        <ConfigSaveUI PluginType="@PluginType" Configuration="@config" CharacterName="@Character?.Name"
-                      OnConfigurationChanged="@(newConfig => {
-                                                  config = (QChatConfig)newConfig;
-                                                  StateHasChanged();
-                                              })"/>
+        @ConfigSaveUI((config, newConfig => { config = (QChatConfig)newConfig; StateHasChanged(); }))
     </Form>
 
     <Divider/>
