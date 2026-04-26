@@ -45,7 +45,7 @@ public class XmlHandlerTable
     public string Document(XmlHandler handler)
     {
         StringBuilder sb = new();
-        sb.AppendLine($"来源：{handler.Name}");
+        sb.AppendLine($"> 来源：{handler.Name}");
         if (string.IsNullOrEmpty(handler.Description) == false)
             sb.AppendLine($"服务描述：{handler.Description}");
 

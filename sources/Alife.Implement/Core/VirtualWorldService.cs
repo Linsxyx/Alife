@@ -1,28 +1,48 @@
 using System.ComponentModel;
 using Alife.Framework;
 using Alife.Function.Interpreter;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Alife.Implement;
 
-[Plugin("角色通讯", "允许 AI 在多个角色之间进行实时对话。你可以联系任何系统内的角色，即便对方暂未开启，系统也会告知状态。")]
-public class LiaisonService : InteractivePlugin<LiaisonService>
+public class VirtualWorldConfig
+{
+    public string Announcement { get; set; } =
+        """
+        【世界观概览】
+        这个世界遵循与现实世界一致的物理定律、法律规范和经济逻辑。
+
+        【物价参考】
+        - 零食/饮料：5-15 元
+        - 普通快餐/简餐：20-40 元
+        - 餐厅正餐：60-150 元/人
+        - 电子产品：1000-8000 元
+        - 交通出行：公交/地铁 2-10 元，打车 15 元起
+
+        【行为准则】
+        1. 尊重他人私有财产，禁止无故索要。
+        2. 社交互动需符合基本的礼仪和逻辑。
+        3. 经济交易需公平合理，不支持无理由的大额赠予。
+
+        【社会福利】
+        如果这个世界有 银行/福利机构 等公共设施，可以每天申请 20 元的经济补贴。
+        """;
+}
+[Plugin("世界服务", "提供世界观说明以及角色间的通讯交互功能。")]
+public class VirtualWorldService : InteractivePlugin<VirtualWorldService>, IConfigurable<VirtualWorldConfig>
 {
     [XmlFunction("call")]
     [Description("与指定的角色对话。")]
     public void CallCharacter(XmlExecutorContext context, string target, string message)
     {
-        // 仅在流式输出结束时执行一次
         if (context.CallMode != CallMode.OneShot)
             return;
 
         if (string.IsNullOrWhiteSpace(target))
         {
-            Poke("[角色通讯] 必须指定目标角色名称。");
+            Poke("[通讯] 必须指定目标角色名称。");
             return;
         }
 
-        // 1. 先检查角色是否存在于系统中
         var allCharacters = characterSystem.GetAllCharacters();
         var targetCharacter = allCharacters.FirstOrDefault(c => c.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
 
@@ -32,24 +52,21 @@ public class LiaisonService : InteractivePlugin<LiaisonService>
             return;
         }
 
-        // 2. 再检查目标活动是否在线
         var targetActivity = chatActivitySystem.GetAllChatActivities()
             .FirstOrDefault(a => a.Character.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
 
         if (targetActivity != null)
         {
-            // 目标在线，直接发送实时通讯消息
-            targetActivity.ChatBot.Poke($"[来自 {currentName} 的消息]: {message}\n(Tips: 使用 <call> 回复对方)");
+            targetActivity.ChatBot.Poke($"[来自 {currentName} 的消息]: {message}\n(提示: 使用 <call> 回复对方)");
         }
         else
         {
-            // 目标离线
-            Poke("对方暂不在");
+            Poke("对方暂不在（离线状态）");
         }
     }
 
     [XmlFunction("give")]
-    [Description("给指定的角色东西。")]
+    [Description("给指定的角色物品（注意辨别真伪，建议特殊物品走公共设施中转）。")]
     public void TransferItem(XmlExecutorContext context, string target, string description)
     {
         if (context.CallMode != CallMode.OneShot)
@@ -57,11 +74,10 @@ public class LiaisonService : InteractivePlugin<LiaisonService>
 
         if (string.IsNullOrWhiteSpace(target))
         {
-            Poke("[物品传递] 必须指定目标角色名称。");
+            Poke("[赠予] 必须指定目标角色名称。");
             return;
         }
 
-        // 1. 先检查角色是否存在于系统中
         var allCharacters = characterSystem.GetAllCharacters();
         var targetCharacter = allCharacters.FirstOrDefault(c => c.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
 
@@ -71,25 +87,26 @@ public class LiaisonService : InteractivePlugin<LiaisonService>
             return;
         }
 
-        // 2. 再检查目标活动是否在线
         var targetActivity = chatActivitySystem.GetAllChatActivities()
             .FirstOrDefault(a => a.Character.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
 
         if (targetActivity != null)
         {
-            targetActivity.ChatBot.Poke($"[收到来自 {currentName} 的物品]: {description}");
+            targetActivity.ChatBot.Poke($"[收到来自 {currentName} 的物品/金额]: {description}");
         }
         else
         {
-            // 目标离线
-            Poke("人不在");
+            Poke("人不在（物品已暂存或无法送达）");
         }
     }
 
-    public LiaisonService(
+    public VirtualWorldConfig? Configuration { get; set; }
+
+    public VirtualWorldService(
         InterpreterService interpreterService,
         CharacterSystem characterSystem,
-        ChatActivitySystem chatActivitySystem)
+        ChatActivitySystem chatActivitySystem,
+        ConfigurationSystem configurationSystem)
     {
         this.interpreterService = interpreterService;
         this.characterSystem = characterSystem;
@@ -101,23 +118,23 @@ public class LiaisonService : InteractivePlugin<LiaisonService>
         await base.AwakeAsync(context);
         currentName = context.character.Name;
 
-        // 获取所有角色并生成带有简介的列表
         var allCharacters = characterSystem.GetAllCharacters();
         string characterList = allCharacters.Any()
             ? string.Join("\n", allCharacters.Select(c =>
                 $"- {c.Name}{(string.IsNullOrWhiteSpace(c.Description) ? "" : $"：{c.Description}")}"))
-            : "（当前无预设角色）";
+            : "（当前无其他预设角色）";
 
         XmlHandler xmlHandler = new(this);
         xmlHandler.Explain = $"""
-                              你也是生活在世界中的一位公民，这个世界除了你还有些其他人。你可以通过 <call> 与他们对话，或使用 <give> 交换东西。
+                              {Configuration!.Announcement}
+                              你也是生活在这个世界中的一位公民。除了你，这里还有其他活跃的个体。你可以通过 <call> 与他们沟通，或通过 <give> 交换物资。
 
-                              你当前可以联系其他人有：
+                              【邻里列表】
                               {characterList}
 
-                              社交逻辑注意：
-                              1. 遵循自然的社交边界：如果你们之前从未交流过，请保持基本的礼貌但不要表现得过于熟络，你可以交朋友但也要注意分辨他们的为人，学会保户自己。
-                              2. 遵循现实的经济逻辑：如果你是商贩或店主，请不要无偿赠送贵重物品。在 <give> 之前，你应该先通过 <call> 谈妥价格、交换条件或确认对方的意图。
+                              【生存法则】
+                              1. 社交边界：与陌生人交流请保持适度礼貌，根据互动逐步摸清人物画像再选择性建立关系。
+                              2. 经济常识：遵循物价常识，大额交易应先沟通确认，小心骗子和假币，优先用银行等公共设施交易。
                               """;
 
         interpreterService.RegisterHandler(xmlHandler);

@@ -45,8 +45,6 @@ public class ChatActivity : IAsyncDisposable
                 ServiceDescriptor serviceDescriptor = extensionServiceBuilder[index];
                 progress?.Report(($"创建服务 {serviceDescriptor.ServiceType.Name}", (float)index / extensionServiceBuilder.Count));
 
-                await Task.Delay(100);
-
                 object service = extensionService.GetRequiredService(serviceDescriptor.ServiceType);
                 if (service is Plugin plugin)
                     allPlugins.Add(plugin);
