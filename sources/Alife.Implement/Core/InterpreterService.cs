@@ -55,7 +55,8 @@ public class InterpreterService : InteractivePlugin<InterpreterService>
 
         //注入使用说明
         string prompt = $"""
-                         你可以通过输出特定的xml标签来实现功能调用（如果不放标签里则会作为普通文本输出，你可以按需选择合适的输出方式）
+                         你可以通过输出特定的xml标签来实现功能调用。
+                         （注意，这些功能都是可选的，你需要根据情况判断要不要使用，默认情况下，你是可以将文本直接输出的）
 
                          ## 支持的功能
                          {handlerTable.Document()}

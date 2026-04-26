@@ -1,5 +1,6 @@
 @implements IDisposable
 @inject IJSRuntime JsRuntime
+@inject ConfigurationSystem ConfigurationSystem
 @inject ChatMessageService ChatMessageService
 
 <Flex Style="height: 100%; width: 100%; display: flex; flex-direction: column; overflow: hidden;"
@@ -27,6 +28,7 @@
             {
                 @lock (messages)
                 {
+                    var globalConfig = ConfigurationSystem.GetConfiguration(typeof(GlobalConfig)) as GlobalConfig ?? new GlobalConfig();
                     @foreach (ChatMessage message in messages)
                     {
                         <div
@@ -328,10 +330,13 @@
             return;
         }
 
+        var globalConfig = ConfigurationSystem.GetConfiguration(typeof(GlobalConfig)) as GlobalConfig ?? new GlobalConfig();
+        string formattedText = $"[{globalConfig.AdminTag}]: {text.Trim()}";
+
         ChatBot? chatBot = ChatMessageService.GetChatBot(CharacterName);
         if (chatBot != null)
         {
-            chatBot.Chat(text.Trim());
+            chatBot.Chat(formattedText);
         }
     }
 }

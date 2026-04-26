@@ -5,7 +5,7 @@
         xmlns:alife="clr-namespace:Alife"
         Title="Alife AI Assistant" Height="800" Width="1200"
         WindowStartupLocation="CenterScreen"
-        WindowStyle="None"
+        WindowStyle="SingleBorderWindow"
         Background="White"
         AllowsTransparency="False">
 
@@ -35,16 +35,17 @@
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="40"
-                      GlassFrameThickness="1"
+                      GlassFrameThickness="0"
                       CornerRadius="12"
-                      ResizeBorderThickness="8" />
+                      ResizeBorderThickness="8"
+                      UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
 
     <Window.Style>
         <Style TargetType="Window">
             <Style.Triggers>
                 <Trigger Property="WindowState" Value="Maximized">
-                    <Setter Property="Padding" Value="8" />
+                    <Setter Property="Padding" Value="0" />
                 </Trigger>
             </Style.Triggers>
         </Style>
