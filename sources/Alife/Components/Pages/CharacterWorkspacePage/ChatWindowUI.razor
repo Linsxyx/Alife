@@ -7,8 +7,12 @@
       Direction="@FlexDirection.Vertical">
 
     <!-- 顶部操作栏 -->
-    <Flex Justify="@FlexJustify.End"
+    <Flex Justify="@FlexJustify.SpaceBetween" Align="@FlexAlign.Center"
           Style="padding: 8px 16px; background: rgba(0,0,0,0.02); border-bottom: 1px solid #f0f0f0;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <Text Type="@TextElementType.Secondary" Style="font-size: 12px;">我的称呼:</Text>
+            <Input @bind-Value="@adminTag" Placeholder="管理员" Size="@InputSize.Small" Style="width: 100px; border-radius: 4px;"/>
+        </div>
         <Button Icon="@IconType.Outline.Clear"
                 Type="@ButtonType.Link"
                 Danger
@@ -28,7 +32,6 @@
             {
                 @lock (messages)
                 {
-                    var globalConfig = ConfigurationSystem.GetConfiguration(typeof(GlobalConfig)) as GlobalConfig ?? new GlobalConfig();
                     @foreach (ChatMessage message in messages)
                     {
                         <div
@@ -252,6 +255,7 @@
     [Parameter] public string CharacterName { get; set; } = "";
 
     string inputText = "";
+    string adminTag = "管理员";
     List<ChatMessage>? messages;
 
     protected override void OnInitialized()
@@ -327,8 +331,7 @@
             return;
         }
 
-        GlobalConfig globalConfig = ConfigurationSystem.GetConfiguration(typeof(GlobalConfig)) as GlobalConfig ?? new GlobalConfig();
-        string formattedText = $"[{globalConfig.AdminTag}]: {text.Trim()}";
+        string formattedText = $"[{adminTag}]: {text.Trim()}";
 
         ChatBot? chatBot = ChatMessageService.GetChatBot(CharacterName);
         if (chatBot != null)

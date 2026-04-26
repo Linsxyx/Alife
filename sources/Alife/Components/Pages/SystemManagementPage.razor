@@ -87,35 +87,7 @@
                 </ChildContent>
             </TabPane>
 
-            <TabPane Key="4">
-                <TabTemplate>
-                    <Flex Direction="@FlexDirection.Vertical" Align="@FlexAlign.Center" Gap="@("4")">
-                        <Icon Type="@IconType.Outline.Setting"/>
-                        <span style="font-size: 12px">全局设置</span>
-                    </Flex>
-                </TabTemplate>
-                <ChildContent>
-                    <div style="padding: 24px; height: 100%; overflow-y: auto; background: #fafafa;">
-                        <Card Title="界面设置" Style="border-radius: 12px; max-width: 600px;">
-                            <Flex Direction="@FlexDirection.Vertical" Gap="@("middle")">
-                                <div>
-                                    <AntDesign.Text Strong>管理员标签名称</AntDesign.Text>
-                                    <Input @bind-Value="@globalConfig.AdminTag" Placeholder="如：管理员、主人" Style="margin-top: 8px;"/>
-                                    <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
-                                        此标签将显示在聊天窗口中你发送的消息上方。
-                                    </AntDesign.Text>
-                                </div>
 
-                                <div style="text-align: right; margin-top: 16px;">
-                                    <Button Type="@ButtonType.Primary" Icon="@IconType.Outline.Save" OnClick="@SaveGlobalConfig">
-                                        保存全局设置
-                                    </Button>
-                                </div>
-                            </Flex>
-                        </Card>
-                    </div>
-                </ChildContent>
-            </TabPane>
         </Tabs>
     </div>
 </div>
@@ -164,12 +136,10 @@
 @code {
     bool isCreating;
     string newCharacterName = "";
-    GlobalConfig globalConfig = new();
 
     protected override void OnInitialized()
     {
         CharacterSystem.OnChanged += StateHasChanged;
-        globalConfig = ConfigurationSystem.GetConfiguration(typeof(GlobalConfig)) as GlobalConfig ?? new GlobalConfig();
     }
 
     void OnConfirmCreate()
@@ -200,11 +170,7 @@
         }
     }
 
-    void SaveGlobalConfig()
-    {
-        ConfigurationSystem.SetConfiguration(typeof(GlobalConfig), globalConfig);
-        _ = NotificationService.Success(new NotificationConfig { Message = "全局设置已成功保存！" });
-    }
+
 
     public void Dispose()
     {

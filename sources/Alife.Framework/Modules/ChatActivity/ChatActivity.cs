@@ -70,8 +70,7 @@ public class ChatActivity : IAsyncDisposable
                 character = character,
                 services = extensionService,
                 kernelBuilder = kernelBuilder,
-                contextBuilder = contentBuilder,
-                globalConfig = (GlobalConfig)StorageSystem.GetConfiguration(typeof(GlobalConfig))
+                contextBuilder = contentBuilder
             };
             for (int index = 0; index < allPlugins.Count; index++)
             {
