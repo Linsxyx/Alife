@@ -122,18 +122,15 @@ public partial class MemoryService : InteractivePlugin<MemoryService>, IConfigur
             return;
         }
 
-        DeleteMemory(target);
+        memoryManager.RemoveMemory(ChatHistory, target);
+        ChatBot.UpdateHistoryEndIndex();
+        
         Poke($"已成功移除记忆存档：{index}（不过你仍可以通过 {nameof(Recall)} 读取其内容）");
     }
 
     public async Task InsertMemory(int level, string summary, string content, DateTime startTime, DateTime endTime)
     {
         await memoryManager.InsertMemory(ChatHistory, level, summary, content, startTime, endTime);
-        ChatBot.UpdateHistoryEndIndex();
-    }
-    public void DeleteMemory(ChatMessageContent content)
-    {
-        memoryManager.RemoveMemory(ChatHistory, content);
         ChatBot.UpdateHistoryEndIndex();
     }
 

@@ -11,22 +11,14 @@ public class StorageSystem
         if (Directory.Exists(path) == false)
             return [];
         return Directory.GetDirectories(path)
-            .Select(f => Path.GetFileNameWithoutExtension(f)!)
+            .Select(f => Path.GetFileNameWithoutExtension(f))
             .ToArray();
-    }
-    public void DeleteKey(string key)
-    {
-        string path = $"{AlifePath.StorageFolderPath}/{key}";
-        if (Directory.Exists(path))
-            Directory.Delete(path, true);
-        else if (File.Exists(path))
-            File.Delete(path);
     }
     public T? GetObject<T>(string key, T? defaultValue = default, JsonSerializerSettings? settings = null)
     {
         try
         {
-            string? data = GetJson(key);
+            string? data = GetValue(key, "json");
             if (string.IsNullOrWhiteSpace(data))
                 return defaultValue;
             return JsonConvert.DeserializeObject<T>(data, settings);
@@ -42,28 +34,30 @@ public class StorageSystem
         settings ??= new JsonSerializerSettings();
         settings.Formatting = Formatting.Indented;
         string data = JsonConvert.SerializeObject(value, settings);
-        SetJson(key, data);
+        SetValue(key, "json", data);
     }
-    public string? GetJson(string key, string? defaultValue = null)
+    public void DeleteObject(string key)
     {
-        return GetValue(key, "json", defaultValue);
+        DeleteValue(key, "json");
     }
-    public void SetJson(string key, string value)
-    {
-        SetValue(key, "json", value);
-    }
-    public string? GetValue(string key, string type, string? defaultValue = null)
+    string? GetValue(string key, string type, string? defaultValue = null)
     {
         string path = $"{AlifePath.StorageFolderPath}/{key}.{type}";
         if (File.Exists(path))
             return File.ReadAllText(path);
         return defaultValue;
     }
-    public void SetValue(string key, string type, string value)
+    void SetValue(string key, string type, string value)
     {
         string path = $"{AlifePath.StorageFolderPath}/{key}.{type}";
         if (Directory.Exists(Path.GetDirectoryName(path)) == false)
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, value);
+    }
+    void DeleteValue(string key, string type)
+    {
+        string path = $"{AlifePath.StorageFolderPath}/{key}.{type}";
+        if (File.Exists(path))
+            File.Delete(path);
     }
 }

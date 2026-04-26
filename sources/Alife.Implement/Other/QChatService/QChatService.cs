@@ -334,6 +334,8 @@ public class QChatService :
              {string.Join("\n", state.MessageBuffer)}
              < ({Configuration!.GroupChatPrompt})
              """;
+        
+        state.MessageBuffer.Clear();
         Poke(cachedMessage);
     }
     void OnAIGroupActivity(long groupID)
