@@ -26,6 +26,16 @@ public class OneBotClient : IAsyncDisposable
     /// </summary>
     public long BotId { get; private set; }
 
+    /// <summary>
+    /// 是否已连接。
+    /// </summary>
+    public bool IsConnected => ws.State == WebSocketState.Open;
+
+    /// <summary>
+    /// WebSocket 地址。
+    /// </summary>
+    public string Url { get => url; set => url = value; }
+
     public OneBotClient(string url)
     {
         this.url = url;
@@ -39,6 +49,10 @@ public class OneBotClient : IAsyncDisposable
 
     public async Task ConnectAsync()
     {
+        if (ws.State == WebSocketState.Open)
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Reconnecting", CancellationToken.None);
+        ws.Dispose();
+
         ws = new ClientWebSocket();
         await ws.ConnectAsync(new Uri(url), CancellationToken.None);
 
@@ -83,7 +97,7 @@ public class OneBotClient : IAsyncDisposable
 
 
 
-    readonly string url;
+    string url;
     readonly byte[] buffer = new byte[1024 * 64];
     readonly ConcurrentDictionary<string, TaskCompletionSource<JsonElement>> pendingActions = new();
     ClientWebSocket ws = new();

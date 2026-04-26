@@ -1,0 +1,92 @@
+@inherits Alife.Framework.PluginUIBase
+@using Alife.Framework
+@using AntDesign
+@inject ConfigurationSystem ConfigurationSystem
+@inject IMessageService MessageService
+
+<div style="background: #fff; padding: 20px; border-radius: 8px;">
+    <Flex Justify="FlexJustify.SpaceBetween" Align="FlexAlign.Center" Style="margin-bottom: 24px;">
+        <Title Level="4" Style="margin: 0;">QQ 聊天配置 (OneBot v11)</Title>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            @if (Plugin is QChatService qChat)
+            {
+                <Badge Status="@(qChat.IsConnected ? BadgeStatus.Success : BadgeStatus.Error)" Text="@(qChat.IsConnected ? "已连接" : "未连接")" />
+                <Button Type="@ButtonType.Default" 
+                        Size="@ButtonSize.Small" 
+                        Icon="@IconType.Outline.Reload" 
+                        Loading="@isReconnecting"
+                        OnClick="Reconnect">
+                    重连
+                </Button>
+            }
+        </div>
+    </Flex>
+
+    <Form TModel="QChatConfig" Model="@config" Layout="@FormLayout.Vertical">
+        <FormItem Label="WebSocket URL">
+            <Input @bind-Value="@config.Url" placeholder="例如: ws://127.0.0.1:3001" />
+            <Text Type="@TextElementType.Secondary" Style="font-size: 12px;">OneBot v11 正向 WebSocket 地址</Text>
+        </FormItem>
+        <FormItem Label="主人 QQ 号">
+            <InputNumber @bind-Value="@config.OwnerId" Style="width: 100%;" />
+            <Text Type="@TextElementType.Secondary" Style="font-size: 12px;">拥有最高权限的 QQ 号，通常是你自己的 QQ</Text>
+        </FormItem>
+
+        <FormItem>
+            <Button id="btn-save-plugin-config" Type="@ButtonType.Primary" OnClick="@Save">保存配置</Button>
+        </FormItem>
+    </Form>
+
+    <Divider />
+    
+    <div style="background: #f5f5f5; padding: 16px; border-radius: 4px;">
+        <Text Strong>使用说明：</Text>
+        <ul style="margin-top: 8px; padding-left: 20px; font-size: 13px; color: #666;">
+            <li>确保已启动 OneBot v11 兼容的服务端（如 LLOneBot, NapCat, Go-CQHTTP）。</li>
+            <li>在服务端配置中开启 正向 WebSocket 服务，端口需与此处填写的 URL 一致。</li>
+            <li>保存配置后，如果未自动连接，可点击上方的“重连”按钮。</li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    QChatConfig config = new();
+    bool isReconnecting = false;
+
+    protected override void OnInitialized()
+    {
+        var result = ConfigurationSystem.GetConfiguration(PluginType);
+        if (result is QChatConfig c)
+        {
+            config = c with { }; // Clone record
+        }
+    }
+
+    async Task Reconnect()
+    {
+        if (Plugin is QChatService qChat)
+        {
+            isReconnecting = true;
+            try
+            {
+                await qChat.ReconnectAsync();
+                MessageService.Success("重连指令已发送喵！");
+            }
+            catch (Exception ex)
+            {
+                MessageService.Error($"重连失败: {ex.Message}");
+            }
+            finally
+            {
+                isReconnecting = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    void Save()
+    {
+        ConfigurationSystem.SetConfiguration(PluginType, config);
+        MessageService.Success("QQ 聊天配置保存成功喵！");
+    }
+}

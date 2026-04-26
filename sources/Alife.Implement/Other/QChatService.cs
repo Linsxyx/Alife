@@ -7,14 +7,16 @@ using Alife.Function.QChat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 
+using Alife.Implement.Other;
+
 namespace Alife.Implement;
 
 public record QChatConfig
 {
-    public string Url { get; init; } = "ws://127.0.0.1:3001";
-    public long OwnerId { get; init; }
+    public string Url { get; set; } = "ws://127.0.0.1:3001";
+    public long OwnerId { get; set; }
 }
-[Plugin("QQ聊天", "连接 OneBot v11 服务器，实现 QQ 消息收发及文件传输。(推荐的QQ机器人平台应用：https://github.com/LLOneBot/LuckyLilliaBot/releases/download/v7.12.2/LLBot-Desktop-win-x64.zip)")]
+[Plugin("QQ聊天", "连接 OneBot v11 服务器，实现 QQ 消息收发及文件传输。(推荐的QQ机器人平台应用：https://github.com/LLOneBot/LuckyLilliaBot/releases/download/v7.12.2/LLBot-Desktop-win-x64.zip)", editorUI: typeof(QChatServiceUI))]
 public class QChatService :
     InteractivePlugin<QChatService>,
     IAsyncDisposable,
@@ -135,6 +137,15 @@ public class QChatService :
 
 
     public QChatConfig? Configuration { get; set; }
+
+    public bool IsConnected => oneBotClient?.IsConnected ?? false;
+
+    public async Task ReconnectAsync()
+    {
+        if (oneBotClient == null) return;
+        oneBotClient.Url = Configuration!.Url;
+        await oneBotClient.ConnectAsync();
+    }
 
     OneBotClient oneBotClient = null!;
     readonly StringBuilder messageBuffers = new();

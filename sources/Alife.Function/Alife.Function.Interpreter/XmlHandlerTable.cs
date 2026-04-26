@@ -79,7 +79,9 @@ public class XmlHandlerTable
         if (string.IsNullOrEmpty(handler.Explain) == false)
         {
             sb.AppendLine("附加说明：");
+            sb.AppendLine("---");
             sb.AppendLine($"{handler.Explain}");
+            sb.AppendLine("---");
         }
 
         return sb.ToString().TrimEnd();

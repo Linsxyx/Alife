@@ -29,34 +29,22 @@ public partial class SpeechService : InteractivePlugin<SpeechService>, IAsyncDis
     [Description("使用语音的方式向用户发送消息。")]
     public async Task Say(XmlExecutorContext context, [XmlContent] string content)
     {
-        if (context.CallMode == CallMode.Reset)
+        if (context.CallMode == CallMode.Opening)
         {
-            if (Synthesizer.IsSpeaking)
-                await Synthesizer.StopSpeakAsync(); //中断语音
-
+            //模拟断句说话
+            await Synthesizer.LastSpeaking;
             return;
         }
 
-        if (hasHeadphones == false)
-        {
-            if (context.CallMode == CallMode.Opening)
-                TryStopRecognition();
-            else if (context.CallMode == CallMode.Closing)
-            {
-                //当停止说话时，等待当前语音结束后，恢复语音识别
-                if (Synthesizer.IsSpeaking)
-                    await Synthesizer.LastSpeaking;
-                TryStartRecognition();
-            }
-        }
-
+        if (context.CallMode != CallMode.Content)
+            return;
         content = content.Trim();
         if (string.IsNullOrWhiteSpace(content))
             return;
 
         //收到新的语音播报任务，先进行语音合成
         audioFileSynthesizingCancellation = new CancellationTokenSource();
-        Task<string?> audioSynthesizingTask = Synthesizer.GenerateSpeechFileAsync(content, audioFileSynthesizingCancellation.Token);
+        audioSynthesizingTask = Synthesizer.GenerateSpeechFileAsync(content, audioFileSynthesizingCancellation.Token);
         //如果当前有音频在播放，则等待占用结束
         if (Synthesizer.IsSpeaking)
         {
@@ -100,9 +88,11 @@ public partial class SpeechService : InteractivePlugin<SpeechService>, IAsyncDis
         });
     }
 
+    public bool IsSpeaking => IsSynthesizing || audioSynthesizingTask.IsCompleted == false;
     public bool IsReceiving { get; set; } = true;
 
     readonly MMDeviceEnumerator enumerator = new();
+    Task<string?> audioSynthesizingTask = Task.FromResult<string?>(null);
     CancellationTokenSource? audioFileSynthesizingCancellation;
     bool hasHeadphones;
 
@@ -112,8 +102,12 @@ public partial class SpeechService : InteractivePlugin<SpeechService>, IAsyncDis
     }
     public async ValueTask DisposeAsync()
     {
-        if (Synthesizer.IsSpeaking)
+        if (IsSpeaking)
+        {
+            if (audioSynthesizingTask.IsCompleted == false)
+                await audioSynthesizingTask;
             await Synthesizer.LastSpeaking;
+        }
     }
     public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
     {
@@ -143,31 +137,13 @@ public partial class SpeechService : InteractivePlugin<SpeechService>, IAsyncDis
             TryStartRecognition();
 
             // SendNotification("语音输入常驻开启", "检测到耳机，已通过 SpeechService 开启实时识别。");
-            // void SendNotification(string title, string message)
-            // {
-            //     try
-            //     {
-            //         string script = $"$Title='{title}'; $Message='{message}'; " +
-            //                         "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; " +
-            //                         "$Template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); " +
-            //                         "$TextNodes = $Template.GetElementsByTagName('text'); " +
-            //                         "$TextNodes.Item(0).AppendChild($Template.CreateTextNode($Title)) | Out-Null; " +
-            //                         "$TextNodes.Item(1).AppendChild($Template.CreateTextNode($Message)) | Out-Null; " +
-            //                         "$Toast = [Windows.UI.Notifications.ToastNotification]::new($Template); " +
-            //                         "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('AlifeSpeechAssist').Show($Toast);";
-            //
-            //         Process.Start(new ProcessStartInfo {
-            //             FileName = "powershell",
-            //             Arguments = $"-Command \"{script}\"",
-            //             CreateNoWindow = true,
-            //             UseShellExecute = false
-            //         });
-            //     }
-            //     catch (Exception ex)
-            //     {
-            //         Debug.WriteLine($"Notification failed: {ex.Message}");
-            //     }
-            // }
+        }
+        else
+        {
+            if (IsSpeaking)
+                TryStopRecognition();
+            else
+                TryStartRecognition();
         }
     }
 

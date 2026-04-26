@@ -3,9 +3,6 @@ using System.Text;
 
 namespace Alife.Basic;
 
-/// <summary>
-/// 管理系统级 Python 运行环境及 ModelScope 依赖。
-/// </summary>
 public static class AlifeCommand
 {
     public static void EnsureInitialized()
@@ -20,7 +17,7 @@ public static class AlifeCommand
         }
 
         if (HasPython() == false)
-            throw new Exception("Python 安装失败或未被识别，请手动安装 Python 3.11+ 并添加到环境变量。");
+            throw new Exception("Python 安装失败或未被识别，请手动安装 Python 3.12+ 并添加到环境变量。");
     }
     public static void Command(string fileName, string arguments)
     {

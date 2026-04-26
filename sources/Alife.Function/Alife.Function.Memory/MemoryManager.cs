@@ -70,7 +70,9 @@ public class MemoryManager
                 string content = PickContent(chatHistory, areaStart, areaStart + areaCompressionCount);
                 content = Regex.Replace(content, "^\\[记忆存档.*$", "", RegexOptions.Multiline);
                 content = Regex.Replace(content, "^完整内容索引.*$", "", RegexOptions.Multiline);
-                string summary = await compressor.Compress(content);
+                string? summary = await compressor.Compress(content);
+                if (summary == null)
+                    return false;
 
                 //提取并保存旧的记录
                 string name = await SaveMemory(new MemoryMeta(areaLevel, startTime, endTime), summary, content);

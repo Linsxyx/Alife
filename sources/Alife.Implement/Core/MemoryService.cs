@@ -11,6 +11,12 @@ using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Implement;
 
+public record MemoryConfig
+{
+    public int Threshold { get; init; } = 64;
+    public int BatchSize { get; init; } = 32;
+    public float Probability { get; init; } = 0.4f;
+}
 public partial class MemoryService
 {
     static readonly TextVectorizer TextVectorizer;
@@ -18,11 +24,6 @@ public partial class MemoryService
     {
         TextVectorizer = new TextVectorizer();
     }
-}
-public record MemoryConfig
-{
-    public int Threshold { get; init; } = 64;
-    public int BatchSize { get; init; } = 32;
 }
 [Plugin("持久记忆", "自动管理和分层压缩对话记忆，提供长期记忆检索能力。", LaunchOrder = -100)]
 public partial class MemoryService : InteractivePlugin<MemoryService>, IConfigurable<MemoryConfig>
@@ -106,7 +107,7 @@ public partial class MemoryService : InteractivePlugin<MemoryService>, IConfigur
 
         //初始化向量化器和感知人设的压缩器
         string storagePath = Path.Combine(AlifePath.StorageFolderPath, chatActivity.Character.StorageKey, "Memory");
-        AlifeTextCompressor compressor = new(kernel.GetRequiredService<IChatCompletionService>(), ChatHistory);
+        AlifeTextCompressor compressor = new(kernel.GetRequiredService<IChatCompletionService>(), ChatHistory, Configuration!.Probability);
         memoryManager = new MemoryManager(compressor, TextVectorizer, storagePath, Configuration!.Threshold, Configuration!.BatchSize);
 
         //加载历史记忆
@@ -135,10 +136,13 @@ public partial class MemoryService : InteractivePlugin<MemoryService>, IConfigur
     /// <summary>
     /// 感知上下文的人设化压缩器
     /// </summary>
-    class AlifeTextCompressor(IChatCompletionService chatCompletionService, ChatHistory history) : TextCompressor
+    class AlifeTextCompressor(IChatCompletionService chatCompletionService, ChatHistory history, float probability) : TextCompressor
     {
-        public override async Task<string> Compress(string text)
+        public override async Task<string?> Compress(string text)
         {
+            if (Random.Shared.NextSingle() > probability)
+                return null;
+
             history.AddMessage(AuthorRole.User,
                 $"""
                  [{nameof(MemoryService)}] 触发上下文压缩了，压缩内容如下：
