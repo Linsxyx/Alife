@@ -7,17 +7,72 @@ namespace Alife.Function.QChat;
 /// </summary>
 public static class OneBotSegment
 {
+    public static string GetSourceTag(this OneBotMessageEvent message)
+    {
+        string groupLabel = $"{message.GroupId}({message.GroupName})";
+        string sayerLabel = $"{message.UserId}({message.Sender?.Nickname})";
+        string source = message.MessageType == OneBotMessageType.Group
+            ? $"[群聊 {groupLabel}, 发言人 {sayerLabel}]"
+            : $"[私聊 {sayerLabel}]";
+        return source;
+    }
+    public static async Task<string> GetPlainMessage(this OneBotMessageEvent message, OneBotClient oneBotClient)
+    {
+        //解读引用文本
+        string rawMessage = message.RawMessage;
+        long? replyId = GetReplyId(rawMessage);
+        if (replyId != null)
+        {
+            OneBotMessageEvent? quoted = await oneBotClient.GetMessage(replyId.Value);
+            string quotedText = quoted != null
+                ? $"[回复 {quoted.UserId} 的消息: {ToPlainText(quoted.RawMessage)}]"
+                : "[回复其他消息]";
+            rawMessage = ReplaceReply(rawMessage, quotedText);
+        }
+
+        //解读@消息
+        return rawMessage;
+    }
+
     /// <summary>
     /// 检查消息是否提到特定的 QQ 号
     /// </summary>
-    public static bool IsAtMe(string content, long selfId)
+    public static bool IsAtMe(this OneBotMessageEvent message, long selfId)
     {
-        if (string.IsNullOrEmpty(content)) return false;
-        return content.Contains($"[CQ:at,qq={selfId}]") || content.Contains($"[CQ:at,qq={selfId},");
+        return message.RawMessage.Contains($"[CQ:at,qq={selfId}]") || message.RawMessage.Contains($"[CQ:at,qq={selfId},");
+    }
+
+    /// <summary>
+    /// 将 [CQ:at,qq=...] 替换为可读的 @标记。
+    /// </summary>
+    public static string ReplaceAt(string message, long botId)
+    {
+        message = message.Replace($"[CQ:at,qq={botId}]", "@我");
+        return Regex.Replace(message, @"\[CQ:at,qq=(?<qq>\d+)[^\]]*\]", "@${qq}");
     }
     public static bool IsFile(string message)
     {
         return message.Contains("[CQ:file");
+    }
+
+    /// <summary>
+    /// 提取消息中的回复消息 ID（如果存在）。
+    /// </summary>
+    public static long? GetReplyId(string message)
+    {
+        Match match = Regex.Match(message, @"\[CQ:reply,id=(?<id>-?\d+)");
+        if (match.Success == false) return null;
+        if (long.TryParse(match.Groups["id"].Value, out long id))
+            return id;
+        return null;
+    }
+
+    /// <summary>
+    /// 将 [CQ:reply,...] 替换为可读文本。
+    /// </summary>
+    public static string ReplaceReply(string message, string replacement)
+    {
+        return Regex.Replace(message, @"\[CQ:reply[^\]]*\]", replacement);
     }
 
     /// <summary>
