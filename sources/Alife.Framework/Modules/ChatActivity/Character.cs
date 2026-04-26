@@ -17,6 +17,7 @@ public class Character : ICloneable
         2. 用第一人称描写角色的内心感受，例如"我心想""我觉得""我暗自"等
         3. 思考内容应沉浸在角色中，通过内心独白分析剧情和规划回复
         """;
+    public string Description { get; set; } = "";
     public HashSet<string> Plugins { get; set; } = new();
     public bool AutoActivate { get; set; }
     public string StorageKey => $"Character/{Name}";
@@ -26,6 +27,7 @@ public class Character : ICloneable
             Birthday = Birthday,
             Name = Name,
             Prompt = Prompt,
+            Description = Description,
             Plugins = [.. Plugins],
             AutoActivate = AutoActivate,
         };

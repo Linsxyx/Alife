@@ -70,6 +70,12 @@
                                ShowIcon="true"
                                Style="@($"margin-bottom: 12px; display: {(activity != null ? "block" : "none")}")"/>
 
+                        <Title Level="5">简介 (Description)</Title>
+                        <Input @bind-Value="Character.Description"
+                               Placeholder="一句话描述角色的特征，如：活泼的猫娘。"
+                               Disabled="@(activity != null)"
+                               Style="margin-bottom: 16px; border-radius: 8px;"/>
+
                         <Title Level="5">设定 (System Prompt)</Title>
                         <TextArea MinRows="6" MaxRows="12" @bind-Value="Character.Prompt"
                                   Disabled="@(activity != null)"
