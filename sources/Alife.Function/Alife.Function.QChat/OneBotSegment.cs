@@ -12,7 +12,7 @@ public static class OneBotSegment
     /// </summary>
     public static long? GetAtID(this OneBotMessageEvent message)
     {
-        Match match = Regex.Match(message.RawMessage, @"\[CQ:at,id=(?<id>-?\d+)");
+        Match match = Regex.Match(message.RawMessage, @"\[CQ:at,qq=(?<id>-?\d+)");
         if (match.Success == false) return null;
         if (long.TryParse(match.Groups["id"].Value, out long id))
             return id;
@@ -92,13 +92,8 @@ public static class OneBotSegment
             message = ReplaceReply(message, quotedText);
         }
 
-        //解读@消息
-        long? id = GetAtID(messageEvent);
-        if (id == null)
-        {
-            message = ReplaceAt(message, oneBotClient.BotId);
-        }
-
+        //解读@消息并清理 CQ 码
+        message = ReplaceAt(message, oneBotClient.BotId);
 
         return message;
     }

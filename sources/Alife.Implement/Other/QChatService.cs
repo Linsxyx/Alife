@@ -159,6 +159,7 @@ public class QChatService :
 
     public bool IsConnected => oneBotClient is { IsConnected: true };
     public IReadOnlyDictionary<long, GroupInfo> GroupStates => groupInfos;
+    public int TotalBufferedMessageCount => groupInfos.Values.Sum(i => i.MessageBuffer.Count);
 
     public async Task ReconnectAsync()
     {
@@ -257,7 +258,7 @@ public class QChatService :
             if (info.MessageBuffer.Count == 0)
                 continue;
             if ((DateTime.Now - info.LastBufferedTime).TotalSeconds < Configuration!.FlushInterval)
-                return; // 防抖：距上次缓存时间超过间隔才推送
+                continue; // 防抖：距上次缓存时间超过间隔才推送
 
             FlushGroupBuffer(info);
         }
