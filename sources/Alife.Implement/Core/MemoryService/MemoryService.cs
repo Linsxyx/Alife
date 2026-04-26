@@ -5,12 +5,12 @@ using Alife.Basic;
 using Alife.Framework;
 using Alife.Function.Interpreter;
 using Alife.Function.Memory;
+using Alife.Implement.Core.MemoryService;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Alife.Implement;
-using Alife.Implement.Core;
 
 public record MemoryConfig
 {
@@ -31,7 +31,7 @@ public partial class MemoryService
 public partial class MemoryService : InteractivePlugin<MemoryService>, IConfigurable<MemoryConfig>
 {
     [XmlFunction]
-    [Description("读取记忆存档的完整内容。（注意存档可能嵌套，根据情况你可以需要多次调用）")]
+    [Description("查看记忆存档中被归档的完整原始内容。（注意存档可能嵌套，根据情况你可以需要多次调用）")]
     public async Task Recall(XmlExecutorContext ctx, [Description("存档索引（如：0-20240101120000-20240101130000）")] string index)
     {
         if (ctx.CallMode != CallMode.OneShot)
@@ -43,7 +43,7 @@ public partial class MemoryService : InteractivePlugin<MemoryService>, IConfigur
             : "未找到记忆记录");
     }
     [XmlFunction]
-    [Description($"在归档的记忆存档中搜索内容（搜索到的结果是内容索引，你需要用 {nameof(Recall)} 打开）。")]
+    [Description($"在归档的记忆存档中搜索内容（搜索到的结果是存档索引，你需要用 {nameof(Recall)} 打开）。")]
     public async Task Search(XmlExecutorContext ctx,
         [Description("搜索的问题")] string query,
         [Description("格式为ISO-8601")] DateTime? startTime = null,
@@ -77,7 +77,7 @@ public partial class MemoryService : InteractivePlugin<MemoryService>, IConfigur
     }
 
     [XmlFunction]
-    [Description("创建一个永久（顶层）记忆存档。你可以用它来记录重要的事实或核心记忆。")]
+    [Description("创建一个永久（最高层）记忆存档。这种记忆不会被压缩，你可以用它来记录重要的事实或核心记忆。")]
     public async Task Memorize(XmlExecutorContext ctx,
         [Description("概述（常驻上下文）")] string summary,
         [Description("详细（需通过 Recall 查看）")] [XmlContent] string content,
@@ -99,7 +99,7 @@ public partial class MemoryService : InteractivePlugin<MemoryService>, IConfigur
     }
 
     [XmlFunction]
-    [Description("删除一个永久（顶层）记忆存档。（注意删除前先做好备份））")]
+    [Description("移除一个永久（最高层）记忆存档。（注意删除前先做好备份））")]
     public void Forget(XmlExecutorContext ctx,
         [Description("存档索引")] string index)
     {
@@ -108,16 +108,22 @@ public partial class MemoryService : InteractivePlugin<MemoryService>, IConfigur
 
         index = index.Trim();
         ChatMessageContent? target = ChatHistory.FirstOrDefault(c => c.Content != null && c.Content.Contains($"存档索引：{index}"));
-
-        if (target != null)
-        {
-            DeleteMemory(target);
-            Poke($"已成功遗忘记忆存档：{index}");
-        }
-        else
+        if (target == null)
         {
             Poke($"未能在当前上下文中找到索引为 '{index}' 的记忆记录。");
+            return;
         }
+
+
+        MemoryMeta memoryMeta = memoryManager.GetMemoryMetaData(target);
+        if (memoryMeta.Level != Configuration!.MaxCompressionLevel)
+        {
+            Poke($"不允许删除非最高层记忆！（当前设定的最高层记忆为：{Configuration!.MaxCompressionLevel}）");
+            return;
+        }
+
+        DeleteMemory(target);
+        Poke($"已成功移除记忆存档：{index}（不过你仍可以通过 {nameof(Recall)} 读取其内容）");
     }
 
     public async Task InsertMemory(int level, string summary, string content, DateTime startTime, DateTime endTime)

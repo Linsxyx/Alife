@@ -357,7 +357,7 @@ public class QChatService :
             state.MessageBuffer.Clear();
         }
 
-        if (Configuration!.CloseGroupAfterReply == false) //即使关闭模式
+        if (Configuration!.CloseGroupAfterReply == false) //及时关闭模式不暴露开关信息，因为完全系统控制
             Poke($"系统通知：群 {groupID} 消息已{(enabled ? "开启" : "关闭")}（不要回复此消息）");
     }
 
