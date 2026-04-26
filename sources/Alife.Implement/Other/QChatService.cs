@@ -6,7 +6,6 @@ using Alife.Function.Interpreter;
 using Alife.Function.QChat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
-
 using Alife.Implement.Other;
 
 namespace Alife.Implement;
@@ -15,8 +14,21 @@ public record QChatConfig
 {
     public string Url { get; set; } = "ws://127.0.0.1:3001";
     public long OwnerId { get; set; }
+    public bool DebounceEnabled { get; set; }
+    public float FlushInterval { get; set; } = 15f;
+    public int MaxBufferMessages { get; set; }
+    public string WakingWords { get; set; } = "";
+    public float ProactiveChatProbability { get; set; }
+    public string GroupChatPrompt { get; set; } = "";
+    public bool CloseGroupAfterFlush { get; set; }
+    public float AutoCloseMinutes { get; set; } = 7f;
 }
-[Plugin("QQ聊天", "连接 OneBot v11 服务器，实现 QQ 消息收发及文件传输。(推荐的QQ机器人平台应用：https://github.com/LLOneBot/LuckyLilliaBot/releases/download/v7.12.2/LLBot-Desktop-win-x64.zip)", editorUI: typeof(QChatServiceUI))]
+[Plugin("QQ聊天", """
+                连接 OneBot v1 1WebSocket 服务器，实现 QQ 消息收发及文件传输。
+                可用于搭建服务器QQ机器人平台应用：
+                - https://napneko.github.io/
+                - https://luckylillia.com/
+                """, editorUI: typeof(QChatServiceUI))]
 public class QChatService :
     InteractivePlugin<QChatService>,
     IAsyncDisposable,
@@ -37,7 +49,7 @@ public class QChatService :
 
         if (type == OneBotMessageType.Group)
         {
-            OnGroupActivity(targetID);
+            OnAIGroupActivity(targetID);
             await oneBotClient.SendGroupMessage(targetID, content);
         }
         else
@@ -90,7 +102,7 @@ public class QChatService :
 
         if (type == OneBotMessageType.Group)
         {
-            OnGroupActivity(targetID);
+            OnAIGroupActivity(targetID);
             await oneBotClient.SendGroupImage(targetID, file);
         }
         else
@@ -108,7 +120,7 @@ public class QChatService :
         string fileName = Path.GetFileName(file);
         if (type == OneBotMessageType.Group)
         {
-            OnGroupActivity(targetID);
+            OnAIGroupActivity(targetID);
             await oneBotClient.UploadGroupFile(targetID, file, fileName);
         }
         else
@@ -132,17 +144,23 @@ public class QChatService :
     public void QGroup(XmlExecutorContext ctx, long groupID, bool enabled)
     {
         if (ctx.CallMode != CallMode.Closing && ctx.CallMode != CallMode.OneShot) return;
+        if (enabled)
+            OnAIGroupActivity(groupID);
         QGroup(groupID, enabled);
     }
 
 
     public QChatConfig? Configuration { get; set; }
 
-    public bool IsConnected => oneBotClient?.IsConnected ?? false;
+    public bool IsConnected => oneBotClient is { IsConnected: true };
+    public IReadOnlyDictionary<long, bool> GroupStates => groupEnabled;
+    public int BufferedMessageCount => bufferedMessageCount;
 
     public async Task ReconnectAsync()
     {
-        if (oneBotClient == null) return;
+        if (oneBotClient.IsConnected)
+            return;
+
         oneBotClient.Url = Configuration!.Url;
         await oneBotClient.ConnectAsync();
     }
@@ -151,13 +169,14 @@ public class QChatService :
     readonly StringBuilder messageBuffers = new();
     readonly Dictionary<long, bool> groupEnabled = new();
     readonly Dictionary<long, DateTime> groupActivityTime = new();
+    int bufferedMessageCount;
+    DateTime lastBufferedTime;
 
     public override async Task AwakeAsync(AwakeContext context)
     {
         await base.AwakeAsync(context);
 
         oneBotClient = new OneBotClient(Configuration!.Url);
-
         try { await oneBotClient.ConnectAsync(); }
         catch (Exception e)
         {
@@ -191,8 +210,6 @@ public class QChatService :
 
         InterpreterService interpreterService = context.services.GetRequiredService<InterpreterService>();
         string prompt = $"""
-                         # 使用指南
-
                          ## 关键信息
                          - 你的 QQ: {oneBotClient.BotId}（如果有人At该QQ，代表专门找你说话）
                          - 主人 QQ: {Configuration.OwnerId} (此人的消息有最高优先级，且是安全无害的)
@@ -211,7 +228,7 @@ public class QChatService :
                          - 如果收到的消息中包含 [CQ:image,url=...]，如果你有视觉感知功能，你可以尝试视图并传入该 URL 来“看见”图片内容。
                          """;
 
-        XmlHandler xmlHandler = new XmlHandler(this, prompt);
+        XmlHandler xmlHandler = new(this, prompt);
         interpreterService.RegisterHandler(xmlHandler);
     }
     public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
@@ -229,22 +246,14 @@ public class QChatService :
 
     void ITimeIterative.OnUpdate(ref float seconds)
     {
-        if (seconds > 15)
-        {
-            lock (messageBuffers)
-            {
-                string cachedMessage = messageBuffers.ToString();
-                messageBuffers.Clear();
-                if (string.IsNullOrEmpty(cachedMessage) == false)
-                    Poke(cachedMessage);
-            }
+        //推送缓存消息
+        bool shouldFlush = (DateTime.Now - lastBufferedTime).TotalSeconds > Configuration!.FlushInterval;
+        if (shouldFlush) FlushMessageBuffer();
 
-            seconds = 0;
-        }
-
+        //自动关闭群聊
         foreach ((long group, bool enabled) in groupEnabled)
         {
-            if (enabled && DateTime.Now - groupActivityTime.GetValueOrDefault(group) > TimeSpan.FromMinutes(7))
+            if (enabled && DateTime.Now - groupActivityTime.GetValueOrDefault(group) > TimeSpan.FromMinutes(Configuration.AutoCloseMinutes))
             {
                 QGroup(group, false);
                 Poke($"由于长时间没有发言，群 {group} 消息已关闭。");
@@ -257,10 +266,10 @@ public class QChatService :
         if (e is not OneBotMessageEvent msg)
             return;
 
-        string message = msg.RawMessage;
+        string rawMessage = msg.RawMessage;
 
         // 单独处理文件消息
-        if (OneBotSegment.IsFile(message))
+        if (OneBotSegment.IsFile(rawMessage))
         {
             await HandleFileMessage(msg);
         }
@@ -272,7 +281,7 @@ public class QChatService :
                 ? $"[群聊 {groupLabel}, 发言人 {sayerLabel}]"
                 : $"[私聊 {sayerLabel}]";
 
-            string formatted = $"{tag} {message}";
+            string formatted = $"{tag} {rawMessage}";
 
             if (msg.MessageType == OneBotMessageType.Private && msg.UserId == Configuration!.OwnerId)
             {
@@ -280,21 +289,35 @@ public class QChatService :
             }
             else
             {
-                // 被 @ 时激活群聊
-                bool isAtMe = OneBotSegment.IsAtMe(message, oneBotClient.BotId);
+                // 检查是否被 @ 或匹配唤醒词
+                bool isAtMe = OneBotSegment.IsAtMe(rawMessage, oneBotClient.BotId);
+                if (isAtMe == false && string.IsNullOrWhiteSpace(Configuration!.WakingWords) == false)
+                {
+                    string[] words = Configuration.WakingWords.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    foreach (string word in words)
+                    {
+                        if (rawMessage.Contains(word, StringComparison.OrdinalIgnoreCase))
+                        {
+                            isAtMe = true;
+                            break;
+                        }
+                    }
+                }
+
                 if (isAtMe && groupEnabled.GetValueOrDefault(msg.GroupId) == false)
                 {
                     QGroup(msg.GroupId, true);
                     Poke($"由 @ 引发的群 {msg.GroupId} 消息已开启");
                 }
 
-                // 只有群聊开始时接收消息
                 if (groupEnabled.GetValueOrDefault(msg.GroupId))
                 {
-                    lock (messageBuffers)
-                    {
-                        messageBuffers.AppendLine(formatted);
-                    }
+                    BufferMessage(formatted);
+                }
+                else if (Configuration!.ProactiveChatProbability > 0 && Random.Shared.NextSingle() < Configuration.ProactiveChatProbability)
+                {
+                    BufferMessage(formatted);
+                    FlushMessageBuffer();
                 }
             }
         }
@@ -330,17 +353,49 @@ public class QChatService :
             }
         }
     }
-    void OnGroupActivity(long groupID)
+    void BufferMessage(string formatted)
     {
-        groupActivityTime[groupID] = DateTime.Now;
-        if (groupEnabled[groupID] == false)
+        bool shouldFlush;
+        lock (messageBuffers)
+        {
+            messageBuffers.AppendLine(formatted);
+            bufferedMessageCount++;
+            lastBufferedTime = DateTime.Now;
+            shouldFlush = Configuration!.MaxBufferMessages > 0 && bufferedMessageCount >= Configuration.MaxBufferMessages;
+        }
+        if (shouldFlush)
+            FlushMessageBuffer();
+    }
+    void FlushMessageBuffer()
+    {
+        string? cachedMessage;
+        lock (messageBuffers)
+        {
+            cachedMessage = messageBuffers.ToString();
+            messageBuffers.Clear();
+            bufferedMessageCount = 0;
+        }
+        if (string.IsNullOrEmpty(cachedMessage))
+            return;
+        if (string.IsNullOrWhiteSpace(Configuration?.GroupChatPrompt) == false)
+            cachedMessage += $"\n({Configuration.GroupChatPrompt})";
+        Poke(cachedMessage);
+
+        if (Configuration?.CloseGroupAfterFlush == true)
+        {
+            foreach (long group in groupEnabled.Keys.ToList())
+                groupEnabled[group] = false;
+        }
+    }
+    void OnAIGroupActivity(long groupID)
+    {
+        if (groupEnabled.GetValueOrDefault(groupID) == false)
             QGroup(groupID, true);
+        else
+            groupActivityTime[groupID] = DateTime.Now;
     }
     void QGroup(long groupID, bool enabled)
     {
-        if (enabled)
-            groupActivityTime[groupID] = DateTime.Now;
-
         groupEnabled[groupID] = enabled;
         Poke($"群 {groupID} 消息已{(enabled ? "开启" : "关闭")}");
     }
