@@ -1,13 +1,18 @@
 @implements IDisposable
 @inject IJSRuntime JsRuntime
+@inject ConfigurationSystem ConfigurationSystem
 @inject ChatMessageService ChatMessageService
 
 <Flex Style="height: 100%; width: 100%; display: flex; flex-direction: column; overflow: hidden;"
       Direction="@FlexDirection.Vertical">
 
     <!-- 顶部操作栏 -->
-    <Flex Justify="@FlexJustify.End"
+    <Flex Justify="@FlexJustify.SpaceBetween" Align="@FlexAlign.Center"
           Style="padding: 8px 16px; background: rgba(0,0,0,0.02); border-bottom: 1px solid #f0f0f0;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <Text Type="@TextElementType.Secondary" Style="font-size: 12px;">我的称呼:</Text>
+            <Input @bind-Value="@adminTag" Placeholder="管理员" Size="@InputSize.Small" Style="width: 100px; border-radius: 4px;"/>
+        </div>
         <Button Icon="@IconType.Outline.Clear"
                 Type="@ButtonType.Link"
                 Danger
@@ -25,25 +30,43 @@
             }
             else
             {
-                @foreach (ChatMessage message in messages)
+                @lock (messages)
                 {
-                    <div
-                        style="display: flex; margin-bottom: 16px; width: 100%; @(message.IsUser ? "flex-direction: row-reverse" : "flex-direction: row")">
-                        <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
-                            <Flex Direction="@FlexDirection.Vertical" Gap="@("small")">
-                                <AntDesign.Text Style="white-space: pre-wrap; font-size: 15px;">
-                                    @message.Content
-                                </AntDesign.Text>
-                                @if (message.IsInputting)
-                                {
-                                    <AntDesign.Text Style="color: rgba(0,0,0,0.45); font-size: 12px">
-                                        输入中
-                                        <Icon Type="@IconType.Outline.Loading"/>
-                                    </AntDesign.Text>
-                                }
-                            </Flex>
+                    @foreach (ChatMessage message in messages)
+                    {
+                        <div
+                            style="display: flex; margin-bottom: 16px; width: 100%; @(message.IsUser ? "flex-direction: row-reverse" : "flex-direction: row")">
+                            <div class="chat-bubble @(message.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">
+                                <Flex Direction="@FlexDirection.Vertical" Gap="@("small")">
+                                    <div class="chat-message-content">
+                                        @if (!string.IsNullOrEmpty(message.Reasoning))
+                                        {
+                                            <div class="chat-reasoning">
+                                                <div class="chat-reasoning-title">
+                                                    <Icon Type="bulb" Theme="IconThemeType.Outline"/>
+                                                    思考过程
+                                                </div>
+                                                <div class="chat-reasoning-content">
+                                                    @message.Reasoning
+                                                </div>
+                                            </div>
+                                        }
+                                        <AntDesign.Text Style="white-space: pre-wrap; font-size: 15px;">
+                                            @message.Content
+                                        </AntDesign.Text>
+                                    </div>
+
+                                    @if (message.IsInputting)
+                                    {
+                                        <AntDesign.Text Style="color: rgba(0,0,0,0.45); font-size: 12px">
+                                            输入中
+                                            <Icon Type="@IconType.Outline.Loading"/>
+                                        </AntDesign.Text>
+                                    }
+                                </Flex>
+                            </div>
                         </div>
-                    </div>
+                    }
                 }
             }
         }
@@ -83,7 +106,7 @@
         padding: 20px 24px;
         background: #fff;
         border-top: 1px solid #f0f0f0;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.02);
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.02);
     }
 
     .native-chat-input {
@@ -131,7 +154,7 @@
     .chat-bubble-ai {
         background: #ffffff;
         border: 1px solid #f0f0f0;
-        color: rgba(0,0,0,0.85);
+        color: rgba(0, 0, 0, 0.85);
         border-bottom-left-radius: 2px;
     }
 
@@ -147,6 +170,30 @@
         background: #52c41a;
         box-shadow: 0 0 0 2px rgba(82, 196, 26, 0.2);
     }
+
+    .chat-reasoning {
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        background: rgba(0, 0, 0, 0.03);
+        border-left: 3px solid #d9d9d9;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    .chat-reasoning-title {
+        color: rgba(0, 0, 0, 0.45);
+        font-weight: 500;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .chat-reasoning-content {
+        color: rgba(0, 0, 0, 0.65);
+        white-space: pre-wrap;
+        font-style: italic;
+    }
 </style>
 
 <script type="text/javascript">
@@ -156,22 +203,33 @@
         element.dataset.scrollSetup = "true";
 
         let isAtBottom = true;
+        let lastHeight = element.scrollHeight;
+
         element.addEventListener('scroll', () => {
-            isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
+            // 只有当内容高度稳定时（说明是用户在滚，而非内容在增加），才更新 isAtBottom
+            if (Math.abs(element.scrollHeight - lastHeight) < 5) {
+                isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
+            }
         });
 
         const observer = new MutationObserver(() => {
             if (isAtBottom) {
+                element.scrollTop = element.scrollHeight;
+                // 补偿性滚动
                 setTimeout(() => {
                     if (isAtBottom) element.scrollTop = element.scrollHeight;
                 }, 10);
             }
+            lastHeight = element.scrollHeight;
         });
         observer.observe(element, {childList: true, subtree: true, characterData: true});
 
         const visibilityObserver = new IntersectionObserver((entries) => {
             if (entries[0].isIntersecting) {
-                setTimeout(() => element.scrollTop = element.scrollHeight, 10);
+                setTimeout(() => {
+                    element.scrollTop = element.scrollHeight;
+                    lastHeight = element.scrollHeight;
+                }, 10);
             }
         });
         visibilityObserver.observe(element);
@@ -197,6 +255,7 @@
     [Parameter] public string CharacterName { get; set; } = "";
 
     string inputText = "";
+    string adminTag = "管理员";
     List<ChatMessage>? messages;
 
     protected override void OnInitialized()
@@ -204,8 +263,8 @@
         base.OnInitialized();
 
         messages = ChatMessageService.GetMessages(CharacterName);
-        ChatMessageService.OnUIMessageChanged += OnUIMessageChanged;
-        ChatMessageService.OnUIMessageSent += OnUIMessageSent;
+        ChatMessageService.OnMessageChanged += OnMessageChanged;
+        ChatMessageService.OnUserMessageSent += OnUserMessageSent;
     }
 
     protected override void OnParametersSet()
@@ -223,23 +282,20 @@
 
     public void Dispose()
     {
-        ChatMessageService.OnUIMessageChanged -= OnUIMessageChanged;
-        ChatMessageService.OnUIMessageSent -= OnUIMessageSent;
+        ChatMessageService.OnMessageChanged -= OnMessageChanged;
+        ChatMessageService.OnUserMessageSent -= OnUserMessageSent;
     }
 
-    void OnUIMessageChanged(string name)
+    void OnMessageChanged(string name)
     {
         if (name == CharacterName)
             InvokeAsync(StateHasChanged);
     }
 
-    void OnUIMessageSent(string name)
+    void OnUserMessageSent(string name)
     {
         if (name == CharacterName)
-            InvokeAsync(() => {
-                StateHasChanged();
-                JsRuntime.InvokeVoidAsync("forceScrollBottom");
-            });
+            InvokeAsync(StateHasChanged);
     }
 
     void OnClear()
@@ -255,7 +311,7 @@
     {
         // 关键：在 keydown 阶段判断是否需要拦截换行
         shouldPreventDefault = (e.Key == "Enter" && !e.ShiftKey);
-        
+
         if (shouldPreventDefault && !e.IsComposing)
         {
             _ = OnSend();
@@ -266,8 +322,8 @@
     {
         // 彻底绕过不同步的 C# 变量，直接从 DOM 获取最新值并清空
         string text = await JsRuntime.InvokeAsync<string>("eval", "var el = document.getElementById('chatInput'); var val = el.value; if(el) el.value = ''; val;");
-        
-        // 同步清空 C# 变量，防止下次逻辑干扰
+
+        // 同步清空 C# 变量，防止下次 logic 干扰
         inputText = string.Empty;
 
         if (string.IsNullOrWhiteSpace(text))
@@ -275,10 +331,15 @@
             return;
         }
 
+        string formattedText = $"[{adminTag}]: {text.Trim()}";
+
         ChatBot? chatBot = ChatMessageService.GetChatBot(CharacterName);
         if (chatBot != null)
         {
-            chatBot.Chat(text.Trim());
+            chatBot.Chat(formattedText);
         }
+
+        await JsRuntime.InvokeVoidAsync("forceScrollBottom");
     }
 }
+

@@ -3,19 +3,13 @@
 @inject ConfigurationSystem ConfigurationSystem
 
 <div style="display: flex; flex-direction: column; gap: 16px;">
-    @if (customUIType != null)
+    @if (customUIType != null && customUIParameters.Count > 0)
     {
         <DynamicComponent Type="customUIType" Parameters="customUIParameters"/>
     }
     else
     {
-        <TextArea
-            Style="min-height: 200px; border-radius: 8px;"
-            @bind-Value="pluginConfiguration">
-        </TextArea>
-        <Flex Justify="@FlexJustify.End">
-            <Button Type="@ButtonType.Primary" OnClick="OnConfirm">保存配置</Button>
-        </Flex>
+        @CreateDefaultUI()
     }
 </div>
 
@@ -27,34 +21,49 @@
     Type? customUIType;
     Dictionary<string, object> customUIParameters = new();
 
-    protected override void OnInitialized()
+    RenderFragment CreateDefaultUI() => 
+        @<div style="display: flex; flex-direction: column; gap: 16px;">
+            <TextArea Style="min-height: 200px; border-radius: 8px;" @bind-Value="pluginConfiguration" />
+            <ConfigSaveUI PluginType="@PluginType" Configuration="@GetConfigFromText()" CharacterName="@Character?.Name" />
+        </div>;
+
+    RenderFragment<(object Config, Action<object> OnChanged)> CreateConfigSaveUI() => data => 
+        @<ConfigSaveUI PluginType="@PluginType" 
+                      Configuration="@data.Config" 
+                      CharacterName="@Character?.Name" 
+                      OnConfigurationChanged="@(newConfig => data.OnChanged?.Invoke(newConfig))" />;
+
+    object? GetConfigFromText()
+    {
+        try
+        {
+            Type type = ConfigurationSystem.GetConfigurationType(PluginType)!;
+            return JsonConvert.DeserializeObject(pluginConfiguration, type);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    protected override void OnParametersSet()
     {
         var attr = PluginType.GetCustomAttribute<PluginAttribute>();
+        pluginConfiguration = ConfigurationSystem.GetConfigurationJson(PluginType)?.ToString(Formatting.Indented) ?? "{}";
 
-        if (attr?.ConfigurationUIType != null)
+        if (attr?.EditorUI != null)
         {
-            customUIType = attr.ConfigurationUIType;
+            customUIType = attr.EditorUI;
             customUIParameters = new Dictionary<string, object> {
-                { "PluginType", PluginType }
+                { "PluginType", PluginType },
+                { "Character", Character },
+                { "DefaultUI", CreateDefaultUI() },
+                { "ConfigSaveUI", CreateConfigSaveUI() }
             };
         }
         else
         {
-            pluginConfiguration = ConfigurationSystem.GetConfigurationJson(PluginType)?.ToString(Formatting.Indented) ?? "{}";
-        }
-    }
-
-    void OnConfirm()
-    {
-        try 
-        {
-            Type type = ConfigurationSystem.GetConfigurationType(PluginType)!;
-            object configuration = JsonConvert.DeserializeObject(pluginConfiguration, type)!;
-            ConfigurationSystem.SetConfiguration(PluginType, configuration);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error saving plugin config: {ex.Message}");
+            customUIType = null;
         }
     }
 }

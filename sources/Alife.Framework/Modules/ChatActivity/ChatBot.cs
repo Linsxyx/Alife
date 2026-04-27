@@ -10,9 +10,15 @@ namespace Alife.Framework;
 
 public class ChatBot : IAsyncDisposable
 {
+    public const string ThinkContentPrefix = "__THINK__";
+
+    public event Func<string, string>? ChatSend;
+    public event Func<string, string>? PokeSend;
     public event Action<string>? ChatSent;
     public event Action<string>? ChatReceived;
+    public event Action<string>? ReasoningReceived;
     public event Action? ChatOver;
+
     public event Action<ChatMessageContent>? ChatHistoryAdd;
     public event Action<ChatTokenUsage>? TokenUsed;
     public ChatHistory ChatHistory => llmAgentThread.ChatHistory;
@@ -30,7 +36,16 @@ public class ChatBot : IAsyncDisposable
         await chatSemaphore.WaitAsync();
         try
         {
-            message = $"[当前时间：{DateTime.Now}]{message}\n（请简短回复，一个say解决）";
+            if (ChatSend != null)
+            {
+                foreach (Delegate @delegate in ChatSend.GetInvocationList())
+                {
+                    Func<string, string> chatSend = (Func<string, string>)@delegate;
+                    message = chatSend.Invoke(message);
+                }
+            }
+
+            message = message.Trim();
             llmAgentThread.ChatHistory.AddMessage(role ?? AuthorRole.User, message);
             cancelChatSource = new CancellationTokenSource();
 
@@ -38,6 +53,8 @@ public class ChatBot : IAsyncDisposable
 
             ChatSent?.Invoke(message);
             string? error = null;
+            StringBuilder cleanResponseBuilder = new(); // 用于存储不含思考过程的最终回复
+
             await using IAsyncEnumerator<AgentResponseItem<StreamingChatMessageContent>> enumerator = llmAgent
                 .InvokeStreamingAsync(llmAgentThread, cancellationToken: cancelChatSource.Token)
                 .GetAsyncEnumerator();
@@ -59,22 +76,60 @@ public class ChatBot : IAsyncDisposable
                 }
 
                 string? content = enumerator.Current.Message.Content;
-                if (content != null) //只要不是空都要接受，包括空白符，因为会有回车之类的符号
+                if (content != null)
                 {
-                    yield return content;
-                    ChatReceived?.Invoke(content);
-                }
-                var metaData = enumerator.Current.Message.Metadata;
-                if (metaData != null && metaData.TryGetValue("Usage", out object? usage))
-                {
-                    if (usage is ChatTokenUsage chatTokenUsage)
+                    //前置报文会对思考内容进行特殊处理，以便兼容思考模式
+                    if (content.StartsWith(ThinkContentPrefix))
                     {
-                        Console.WriteLine(
-                            $"[Token消耗] total:{chatTokenUsage.TotalTokenCount} input:{chatTokenUsage.InputTokenCount}({chatTokenUsage.InputTokenDetails.CachedTokenCount}) output:{chatTokenUsage.OutputTokenCount} ");
-                        TokenUsed?.Invoke(chatTokenUsage);
+                        string reasoningPart = content.Substring(ThinkContentPrefix.Length);
+                        if (!string.IsNullOrEmpty(reasoningPart))
+                        {
+                            ReasoningReceived?.Invoke(reasoningPart);
+                        }
+                    }
+                    else
+                    {
+                        yield return content;
+                        ChatReceived?.Invoke(content);
+                        cleanResponseBuilder.Append(content);
+                    }
+                }
+
+                var metaData = enumerator.Current.Message.Metadata;
+                if (metaData != null)
+                {
+                    // 尝试从元数据中提取思考过程 (支持原生支持此字段的 SDK)
+                    if (metaData.TryGetValue("ReasoningContent", out object? reasoning) ||
+                        metaData.TryGetValue("reasoning_content", out reasoning))
+                    {
+                        string? reasoningStr = reasoning?.ToString();
+                        if (!string.IsNullOrEmpty(reasoningStr))
+                        {
+                            ReasoningReceived?.Invoke(reasoningStr);
+                        }
+                    }
+
+
+                    if (metaData.TryGetValue("Usage", out object? usage))
+                    {
+                        if (usage is ChatTokenUsage chatTokenUsage)
+                        {
+                            Console.WriteLine(
+                                $"[Token消耗] total:{chatTokenUsage.TotalTokenCount} input:{chatTokenUsage.InputTokenCount}({chatTokenUsage.InputTokenDetails?.CachedTokenCount}) output:{chatTokenUsage.OutputTokenCount} ");
+                            TokenUsed?.Invoke(chatTokenUsage);
+                        }
                     }
                 }
             }
+
+            // 在同步历史记录前，清洗掉可能存入 ChatHistory 的思考内容（防止污染上下文）
+            if (llmAgentThread.ChatHistory.Count > 0)
+            {
+                ChatMessageContent lastMsg = llmAgentThread.ChatHistory[^1];
+                if (lastMsg.Role == AuthorRole.Assistant && (lastMsg.Content?.Contains(ThinkContentPrefix) ?? false))
+                    lastMsg.Content = cleanResponseBuilder.ToString();
+            }
+
             ChatOver?.Invoke();
 
             ChaseChatHistory();
@@ -112,17 +167,12 @@ public class ChatBot : IAsyncDisposable
     {
         while (messageCache.Count > 11)
             messageCache.TryDequeue(out _);
-        messageCache.Enqueue(message);
+        messageCache.Enqueue($"\n{message}\n");
         lastAutoFlushTime = 0; //重新计时，防止后续还有Poke
     }
     public void UpdateHistoryEndIndex()
     {
         lastContentIndex = ChatHistory.Count;
-    }
-
-    public bool IsPokeMessage(string message)
-    {
-        return message.Contains("[非用户消息]");
     }
 
     readonly ChatCompletionAgent llmAgent;
@@ -189,14 +239,23 @@ public class ChatBot : IAsyncDisposable
         if (messageCache.Count != 0)
         {
             //组合消息
-            StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.AppendLine("[非用户消息](请 think 后再回复，回复后停止 think)");
+            StringBuilder stringBuilder = new();
             foreach (string message in messageCache)
                 stringBuilder.AppendLine(message);
+            string poke = stringBuilder.ToString();
             messageCache.Clear();
 
+            if (PokeSend != null)
+            {
+                foreach (Delegate @delegate in PokeSend.GetInvocationList())
+                {
+                    Func<string, string> pokeSend = (Func<string, string>)@delegate;
+                    poke = pokeSend.Invoke(poke);
+                }
+            }
+
             //发送消息
-            Chat(stringBuilder.ToString());
+            Chat(poke);
         }
     }
 

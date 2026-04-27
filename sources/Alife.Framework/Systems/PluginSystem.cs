@@ -23,7 +23,7 @@ public class PluginSystem : IDisposable
     }
     public string GetPluginID(Type pluginType)
     {
-        return pluginType.AssemblyQualifiedName!;
+        return pluginType.FullName!;
     }
 
     public void ReloadPlugins()

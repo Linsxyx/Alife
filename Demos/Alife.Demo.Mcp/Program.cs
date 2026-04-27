@@ -13,10 +13,10 @@ var character = new Character {
              "你拥有 Model Context Protocol (MCP) 能力，可以通过各种外部工具来执行任务。\n" +
              "你可以通过 XML 标签来调用这些工具。系统会自动为你列出可用的工具标签。\n" +
              "请在对话中根据需要主动使用这些工具喵！",
-    Plugins = new HashSet<Type> {
-        typeof(OpenAIChatService),
-        typeof(InterpreterService),
-        typeof(McpService),
+    Plugins = new HashSet<string> {
+        typeof(ChatService).FullName!,
+        typeof(InterpreterService).FullName!,
+        typeof(McpService).FullName!,
     }
 };
 

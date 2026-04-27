@@ -22,7 +22,7 @@ public class XmlExecutorContext : XmlContext
 public class XmlStreamExecutor : IAsyncDisposable
 {
     public event Action<string, Exception>? Error;
-    public bool IsIdle => commandChannel.Reader.TryPeek(out _) == false && lastTask is { IsCompleted: true };
+    public bool IsIdle => commandChannel.Reader.TryPeek(out _) == false && lastTask is null or { IsCompleted: true };
     public void Feed(string text)
     {
         foreach (char ch in text)

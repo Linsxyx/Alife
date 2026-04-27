@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 
@@ -8,6 +9,7 @@ public abstract class Plugin
     public struct AwakeContext
     {
         public Character character;
+        public ServiceProvider services;
         public IKernelBuilder kernelBuilder;
         public ChatHistoryAgentThread contextBuilder;
     }

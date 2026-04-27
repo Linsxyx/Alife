@@ -1,0 +1,107 @@
+@namespace Alife.Implement
+@inherits Alife.Framework.PluginUIBase
+@implements IDisposable
+
+<div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
+
+    <Flex Direction="FlexDirection.Vertical" Gap="@("24")">
+        <GridRow Gutter="16">
+            <GridCol Span="12">
+                <Card Size="CardSize.Small" Title="语音识别 (STT)" Style="border-radius: 8px;">
+                    <Flex Direction="FlexDirection.Vertical" Align="@FlexAlign.Center" Style="padding: 12px 0;">
+                        <div style="margin-bottom: 16px;">
+                            @if (SpeechService.IsRecognizing)
+                            {
+                                <Badge Status="BadgeStatus.Processing" Text="正在监听中..."/>
+                            }
+                            else
+                            {
+                                <Badge Status="BadgeStatus.Default" Text="已暂停"/>
+                            }
+                        </div>
+                        <Switch Checked="@(SpeechService.IsRecognizing)" CheckedChanged="@(ToggleStt)"
+                                CheckedChildren="开启"
+                                UnCheckedChildren="关闭"/>
+                    </Flex>
+                </Card>
+            </GridCol>
+
+            <GridCol Span="12">
+                <Card Size="CardSize.Small" Title="语音合成 (TTS)" Style="border-radius: 8px;">
+                    <Flex Direction="FlexDirection.Vertical" Align="@FlexAlign.Center" Style="padding: 12px 0;">
+                        <div style="margin-bottom: 16px;">
+                            @if (SpeechService.IsSynthesizing)
+                            {
+                                <Badge Status="BadgeStatus.Processing" Color="@("green")" Text="正在播放语音..."/>
+                            }
+                            else
+                            {
+                                <Badge Status="BadgeStatus.Default" Text="待机"/>
+                            }
+                        </div>
+                        <Button Icon="sound" Size="ButtonSize.Small"
+                                Disabled="@(!SpeechService.IsSynthesizing)"
+                                Danger OnClick="@(StopTts)">停止播报
+                        </Button>
+                    </Flex>
+                </Card>
+            </GridCol>
+        </GridRow>
+
+        <Alert Type="AlertType.Info" ShowIcon="true"
+               Message="说明：非耳机状态，识别功能将根据语音合成情况自动开关；耳机状态时，将会常驻开启语音识别。"/>
+
+        @if (speechService != null)
+        {
+            <Flex Align="@FlexAlign.Center" Justify="FlexJustify.SpaceBetween" Style="margin-bottom: 8px;">
+                <Title Level="4" Style="margin: 0;">特定于活动的开关</Title>
+                <Flex Align="@FlexAlign.Center" Gap="@("8")">
+                    <Text Type="TextElementType.Secondary">是否接收语音</Text>
+                    <Switch @bind-Checked="@speechService.IsReceiving" Size="InputSize.Small"/>
+                </Flex>
+            </Flex>
+        }
+
+    </Flex>
+
+</div>
+
+@code {
+    SpeechService? speechService;
+    private System.Timers.Timer? refreshTimer;
+
+    protected override void OnInitialized()
+    {
+        refreshTimer = new System.Timers.Timer(1000);
+        refreshTimer.Elapsed += (_, _) => InvokeAsync(StateHasChanged);
+        refreshTimer.Start();
+    }
+    public void Dispose()
+    {
+        refreshTimer?.Stop();
+        refreshTimer?.Dispose();
+    }
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+
+        speechService = Plugin as SpeechService;
+    }
+
+    private void ToggleStt(bool value)
+    {
+        if (speechService != null)
+        {
+            if (value)
+                speechService.TryStartRecognition();
+            else
+                speechService.TryStopRecognition();
+        }
+    }
+
+    private async Task StopTts()
+    {
+        await SpeechService.Synthesizer.StopSpeakAsync();
+    }
+}

@@ -5,6 +5,7 @@ namespace Alife.Components.Services;
 public class ChatMessage
 {
     public string? Content { get; set; }
+    public string? Reasoning { get; set; }
     public bool IsUser { get; set; }
     public bool IsInputting { get; set; }
 }
@@ -14,31 +15,30 @@ public class ChatMessage
 /// </summary>
 public class ChatMessageService
 {
-    public event Action<string>? OnUIMessageChanged;
-    public event Action<string>? OnUIMessageSent;
+    public event Action<string>? OnMessageChanged;
+    public event Action<string>? OnUserMessageSent;
 
     public ChatBot? GetChatBot(string name)
     {
-        return chatbots.GetValueOrDefault(name);
+        return chatbotMap.GetValueOrDefault(name);
     }
     public List<ChatMessage> GetMessages(string name)
     {
-        if (messages.ContainsKey(name) == false)
-            messages.Add(name, new List<ChatMessage>());
-        return messages[name];
+        if (messagesMap.ContainsKey(name) == false)
+            messagesMap.Add(name, new List<ChatMessage>());
+        return messagesMap[name];
     }
-
     public void ClearMessages(string name)
     {
-        if (messages.TryGetValue(name, out List<ChatMessage>? list))
+        if (messagesMap.TryGetValue(name, out List<ChatMessage>? list))
         {
             list.Clear();
         }
     }
 
 
-    Dictionary<string, List<ChatMessage>> messages = new();
-    Dictionary<string, ChatBot> chatbots = new();
+    readonly Dictionary<string, List<ChatMessage>> messagesMap = new();
+    readonly Dictionary<string, ChatBot> chatbotMap = new();
 
     public ChatMessageService(ChatActivitySystem system)
     {
@@ -48,7 +48,7 @@ public class ChatMessageService
     void OnActivityDestroyed(ChatActivity activity)
     {
         string name = activity.Character.Name;
-        chatbots.Remove(name);
+        chatbotMap.Remove(name);
     }
 
     /// <summary>
@@ -59,19 +59,31 @@ public class ChatMessageService
     {
         string name = activity.Character.Name;
         List<ChatMessage> messages = GetMessages(name);
-        chatbots.Add(name, activity.ChatBot);
-        activity.ChatBot.ChatSent += (obj) => {
-            messages.Add(new ChatMessage { Content = obj, IsUser = true });
-            messages.Add(new ChatMessage { IsUser = false, IsInputting = true });
-            OnUIMessageSent?.Invoke(name);
-            OnUIMessageChanged?.Invoke(name);
+        chatbotMap.Add(name, activity.ChatBot);
+        activity.ChatBot.ChatSent += message => {
+            lock (messages)
+            {
+                messages.Add(new ChatMessage { Content = message, IsUser = true });
+                messages.Add(new ChatMessage { IsUser = false, IsInputting = true });
+            }
+
+            OnMessageChanged?.Invoke(name);
+            OnUserMessageSent?.Invoke(name);
         };
         activity.ChatBot.ChatReceived += (obj) => {
             ChatMessage? aiMessage = messages.LastOrDefault(m => m is { IsUser: false, IsInputting: true });
             if (aiMessage != null)
             {
                 aiMessage.Content += obj;
-                OnUIMessageChanged?.Invoke(name);
+                OnMessageChanged?.Invoke(name);
+            }
+        };
+        activity.ChatBot.ReasoningReceived += (obj) => {
+            ChatMessage? aiMessage = messages.LastOrDefault(m => m is { IsUser: false, IsInputting: true });
+            if (aiMessage != null)
+            {
+                aiMessage.Reasoning += obj;
+                OnMessageChanged?.Invoke(name);
             }
         };
         activity.ChatBot.ChatOver += () => {
@@ -79,7 +91,7 @@ public class ChatMessageService
             if (aiMessage != null)
             {
                 aiMessage.IsInputting = false;
-                OnUIMessageChanged?.Invoke(name);
+                OnMessageChanged?.Invoke(name);
             }
         };
     }

@@ -19,10 +19,11 @@ public class DemoSuite : IAsyncDisposable
         Terminal.LogInfo("正在初始化系统环境 (Storage, Config)...");
         StorageSystem storage = new();
         ConfigurationSystem config = new(storage);
+        PluginSystem plugins = new(storage);
         configure?.Invoke(config);
 
         Terminal.LogInfo("正在创建 ChatActivity 并注入插件...");
-        ChatActivity activity = await ChatActivity.Create(character, config, null, [config, storage]);
+        ChatActivity activity = await ChatActivity.Create(character, config, plugins, null, [config, storage]);
 
         Terminal.LogInfo($"[插件加载完毕]: {string.Join(", ", activity.Plugins.Select(p => p.GetType().Name))}");
 

@@ -12,10 +12,10 @@ var character = new Character {
     Name = "PetDemoMao",
     Prompt = "你是一个桌宠，名叫真央。你非常活泼，喜欢用猫娘语说话（每句话带喵）。\n" +
              "你可以通过控制桌宠应用来表达情感。请在对话中适时使用表情和动作喵！",
-    Plugins = new HashSet<Type> {
-        typeof(InterpreterService),
-        typeof(DeskPetService),
-        typeof(OpenAIChatService),
+    Plugins = new HashSet<string> {
+        typeof(InterpreterService).FullName!,
+        typeof(DeskPetService).FullName!,
+        typeof(ChatService).FullName!,
     }
 };
 

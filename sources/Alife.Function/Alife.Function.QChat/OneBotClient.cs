@@ -14,17 +14,27 @@ public class OneBotClient : IAsyncDisposable
     /// <summary>
     /// 事件接收回调。
     /// </summary>
-    public event Action<OneBotBaseEvent>? OnEventReceived;
+    public event Action<OneBotBaseEvent>? EventReceived;
 
     /// <summary>
     /// 连接状态改变回调。
     /// </summary>
-    public event Action<bool>? OnConnectionStatusChanged;
+    public event Action<bool>? ConnectionStatusChanged;
 
     /// <summary>
     /// 当前 Bot 的 QQ 号。
     /// </summary>
     public long BotId { get; private set; }
+
+    /// <summary>
+    /// 是否已连接。
+    /// </summary>
+    public bool IsConnected => ws.State == WebSocketState.Open;
+
+    /// <summary>
+    /// WebSocket 地址。
+    /// </summary>
+    public string Url { get => url; set => url = value; }
 
     public OneBotClient(string url)
     {
@@ -39,6 +49,10 @@ public class OneBotClient : IAsyncDisposable
 
     public async Task ConnectAsync()
     {
+        if (ws.State == WebSocketState.Open)
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Reconnecting", CancellationToken.None);
+        ws.Dispose();
+
         ws = new ClientWebSocket();
         await ws.ConnectAsync(new Uri(url), CancellationToken.None);
 
@@ -50,7 +64,7 @@ public class OneBotClient : IAsyncDisposable
         {
             BotId = ev.SelfId;
             ReceiveLoop();
-            OnConnectionStatusChanged?.Invoke(true);
+            ConnectionStatusChanged?.Invoke(true);
         }
         else
         {
@@ -83,7 +97,7 @@ public class OneBotClient : IAsyncDisposable
 
 
 
-    readonly string url;
+    string url;
     readonly byte[] buffer = new byte[1024 * 64];
     readonly ConcurrentDictionary<string, TaskCompletionSource<JsonElement>> pendingActions = new();
     ClientWebSocket ws = new();
@@ -95,7 +109,7 @@ public class OneBotClient : IAsyncDisposable
             while (ws.State == WebSocketState.Open)
             {
                 OneBotBaseEvent? ev = await ReceiveEventAsync();
-                if (ev != null) OnEventReceived?.Invoke(ev);
+                if (ev != null) EventReceived?.Invoke(ev);
             }
         }
         catch (Exception ex)
@@ -104,7 +118,7 @@ public class OneBotClient : IAsyncDisposable
         }
         finally
         {
-            OnConnectionStatusChanged?.Invoke(false);
+            ConnectionStatusChanged?.Invoke(false);
         }
     }
 

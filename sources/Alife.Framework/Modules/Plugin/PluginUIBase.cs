@@ -8,20 +8,11 @@ namespace Alife.Framework;
 /// </summary>
 public abstract class PluginUIBase : ComponentBase
 {
-    /// <summary>
-    /// 当前插件的类型。
-    /// </summary>
-    [Parameter] public Type PluginType { get; set; } = null!;
+    [Parameter] public Type PluginType { get; set; } = null!; //当前插件的类型。
+    [Parameter] public Character? Character { get; set; } //当前关联的角色（如果有）。
+    [Parameter] public ChatActivity? ChatActivity { get; set; } //当前关联的运行活动（如果有）。
+    [Parameter] public Plugin? Plugin { get; set; }
 
-    /// <summary>
-    /// 当前关联的角色（如果有）。
-    /// 在全局配置中心此项为空。
-    /// </summary>
-    [Parameter] public Character? Character { get; set; }
-
-    /// <summary>
-    /// 当前关联的运行活动（如果有）。
-    /// 用于显示实时运行状态。
-    /// </summary>
-    [Parameter] public ChatActivity? ChatActivity { get; set; }
+    [Parameter] public RenderFragment DefaultUI { get; set; } = _ => { };
+    [Parameter] public RenderFragment<(object Config, Action<object> OnChanged)> ConfigSaveUI { get; set; } = _ => _ => { };
 }

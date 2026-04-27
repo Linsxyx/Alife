@@ -2,10 +2,11 @@ using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
-using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using Microsoft.SemanticKernel.ChatCompletion;
 using Newtonsoft.Json.Linq;
 using System.Text;
+
 
 namespace Alife.Framework;
 
@@ -14,10 +15,10 @@ public class ChatActivity : IAsyncDisposable
     public static async Task<ChatActivity> Create(
         Character character,
         ConfigurationSystem configurationSystem,
+        PluginSystem pluginSystem,
         IProgress<(string, float)>? progress = null,
         object[]? appendServices = null)
     {
-
         //创建服务容器
         ServiceCollection extensionServiceBuilder = new();
         //添加系统服务
@@ -27,7 +28,11 @@ public class ChatActivity : IAsyncDisposable
                 extensionServiceBuilder.AddSingleton(appendService.GetType(), appendService);
         }
         //添加插件服务
-        foreach (Type pluginType in character.Plugins.OrderBy(type => type.GetCustomAttribute<PluginAttribute>()?.LaunchOrder))
+
+        Type[] pluginTypes = character.Plugins
+            .Select(pluginID => pluginSystem.GetPlugin(pluginID))
+            .Where(t => t != null).Cast<Type>().ToArray();
+        foreach (Type pluginType in pluginTypes.OrderBy(type => type.GetCustomAttribute<PluginAttribute>()?.LaunchOrder))
             extensionServiceBuilder.AddSingleton(pluginType);
         ServiceProvider extensionService = extensionServiceBuilder.BuildServiceProvider();
 
@@ -39,8 +44,6 @@ public class ChatActivity : IAsyncDisposable
             {
                 ServiceDescriptor serviceDescriptor = extensionServiceBuilder[index];
                 progress?.Report(($"创建服务 {serviceDescriptor.ServiceType.Name}", (float)index / extensionServiceBuilder.Count));
-
-                await Task.Delay(100);
 
                 object service = extensionService.GetRequiredService(serviceDescriptor.ServiceType);
                 if (service is Plugin plugin)
@@ -65,6 +68,7 @@ public class ChatActivity : IAsyncDisposable
             //构建环境
             Plugin.AwakeContext awakeContext = new() {
                 character = character,
+                services = extensionService,
                 kernelBuilder = kernelBuilder,
                 contextBuilder = contentBuilder
             };
@@ -108,15 +112,20 @@ public class ChatActivity : IAsyncDisposable
         //创建最核心的大语言服务功能
         if (kernelService.Services.GetService<IChatCompletionService>() == null)
             throw new NotSupportedException("必须至少提供一个支持对话能力的模型！");
+
+        // 收集所有插件提供的执行参数（如思考模式）
+        OpenAIPromptExecutionSettings executionSettings = new();
+        foreach (IProvideExecutionSettings plugin in plugins.OfType<IProvideExecutionSettings>())
+            plugin.ProvideSettings(executionSettings);
+
         ChatCompletionAgent llmAgent = new() {
             Name = character.Name,
             Instructions = character.Prompt,
             InstructionsRole = AuthorRole.System,
             Kernel = kernelService,
-            Arguments = new KernelArguments(
-                new PromptExecutionSettings()
-            ),
+            Arguments = new KernelArguments(executionSettings),
         };
+
         chatBot = new(llmAgent, context);
     }
 
@@ -130,7 +139,7 @@ public class ChatActivity : IAsyncDisposable
             await pluginInstance.StartAsync(kernelService, this);
         }
     }
-    
+
     public IEnumerable<string> GetImplicitContext()
     {
         return kernelService.Plugins.GetFunctionsMetadata()

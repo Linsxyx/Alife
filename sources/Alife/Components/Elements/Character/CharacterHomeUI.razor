@@ -1,4 +1,4 @@
-﻿@using System.Reflection
+@using System.Reflection
 @using Alife.Components.Elements.Character
 @using Alife.Components.Elements.Utility
 @inject PluginSystem PluginSystem
@@ -9,7 +9,7 @@
 <ErrorWindowUI Title="角色激活失败喵！" @bind-Value="@activityException"></ErrorWindowUI>
 
 <CharacterLoadingUI Visible="@isLoading"
-                    Title="正在激活角色中..."
+                    Title=@($"正在激活 {Character?.Name}")
                     TaskDescription="@loadingTask"
                     Progress="@loadingProgress"/>
 
@@ -69,6 +69,12 @@
                         <Alert Message="提示" Description="角色活动时无法修改配置喵。" Type="@AlertType.Info"
                                ShowIcon="true"
                                Style="@($"margin-bottom: 12px; display: {(activity != null ? "block" : "none")}")"/>
+
+                        <Title Level="5">简介 (Description)</Title>
+                        <Input @bind-Value="Character.Description"
+                               Placeholder="一句话描述角色的特征，如：活泼的猫娘。"
+                               Disabled="@(activity != null)"
+                               Style="margin-bottom: 16px; border-radius: 8px;"/>
 
                         <Title Level="5">设定 (System Prompt)</Title>
                         <TextArea MinRows="6" MaxRows="12" @bind-Value="Character.Prompt"
@@ -185,7 +191,7 @@
     {
         if (Character != null)
         {
-            pluginIDs = Character.Plugins.Select(plugin => PluginSystem.GetPluginID(plugin)).ToHashSet();
+            pluginIDs = Character.Plugins.ToHashSet();
             activity = ChatActivitySystem.GetAllChatActivities().FirstOrDefault(a => a.Character.Name == Character.Name);
             UpdateState();
         }
@@ -219,7 +225,7 @@
         isSaving = true;
         try
         {
-            Character.Plugins = pluginIDs.Select(id => PluginSystem.GetPlugin(id)).Where(t => t != null).Cast<Type>().ToHashSet();
+            Character.Plugins = pluginIDs.ToHashSet();
             CharacterSystem.SaveCharacter(Character);
 
             _ = NotificationService.Success(new NotificationConfig { Message = "角色配置已成功保存！" });

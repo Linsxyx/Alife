@@ -83,11 +83,11 @@ public class QChatFunctionTests
             if (e is OneBotMessageEvent m && m.GroupId == lastGroupId && m.RawMessage.Contains($"[CQ:at,qq={client.BotId}"))
                 tcs.TrySetResult(m);
         };
-        client.OnEventReceived += handler;
+        client.EventReceived += handler;
 
         MessageBox.Show($"请在群里【@机器人】一下 ({client.BotId})", "群聊 At 测试");
         OneBotMessageEvent received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        client.OnEventReceived -= handler;
+        client.EventReceived -= handler;
 
         // 测试机器人主动 @ 别人 (刚才说话的那个人)
         await client.SendGroupMessage(lastGroupId, $"[CQ:at,qq={received.UserId}] 收到你的召唤！这是机器人主动 @ 你的测试。");
@@ -104,11 +104,11 @@ public class QChatFunctionTests
             if (e is OneBotMessageEvent m && m.RawMessage.Contains("[CQ:image"))
                 tcs.TrySetResult(m);
         };
-        client.OnEventReceived += handler;
+        client.EventReceived += handler;
 
         MessageBox.Show("请在群里发送【一张图片】...", "群聊接收图片测试");
         OneBotMessageEvent received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        client.OnEventReceived -= handler;
+        client.EventReceived -= handler;
 
         // 简易解析 CQ 码里的 file 参数 (实际建议用正则)
         string raw = received.RawMessage;
@@ -141,11 +141,11 @@ public class QChatFunctionTests
             if (e is OneBotNoticeEvent n && n.GroupId == lastGroupId && n.NoticeType == "group_upload")
                 tcs.TrySetResult(n);
         };
-        client.OnEventReceived += handler;
+        client.EventReceived += handler;
 
         MessageBox.Show("请在群里【上传一个文件】...", "群聊接收文件测试");
         OneBotNoticeEvent received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        client.OnEventReceived -= handler;
+        client.EventReceived -= handler;
 
         Console.WriteLine($"收到群文件通知: {received.File?.Name}");
 
@@ -197,11 +197,11 @@ public class QChatFunctionTests
         Action<OneBotBaseEvent> handler = e => {
             if (e is OneBotMessageEvent m && m.MessageType == OneBotMessageType.Private) tcs.TrySetResult(m);
         };
-        client.OnEventReceived += handler;
+        client.EventReceived += handler;
 
         MessageBox.Show("请给 Bot 发送一条【私聊】消息以锚定身份...", "私聊测试 - 自动锚定");
         lastPrivateMessage = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        client.OnEventReceived -= handler;
+        client.EventReceived -= handler;
 
         lastPrivateUserId = lastPrivateMessage.UserId;
         return lastPrivateMessage;
@@ -215,11 +215,11 @@ public class QChatFunctionTests
         Action<OneBotBaseEvent> handler = e => {
             if (e is OneBotMessageEvent m && m.MessageType == OneBotMessageType.Group) tcs.TrySetResult(m);
         };
-        client.OnEventReceived += handler;
+        client.EventReceived += handler;
 
         MessageBox.Show("请在群里发送一条【普通群消息】以锚定群聊...", "群聊测试 - 自动锚定");
         lastGroupMessage = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        client.OnEventReceived -= handler;
+        client.EventReceived -= handler;
 
         lastGroupId = lastGroupMessage.GroupId;
         lastGroupUserId = lastGroupMessage.UserId;

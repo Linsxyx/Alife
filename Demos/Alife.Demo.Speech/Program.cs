@@ -8,9 +8,9 @@ Character character = new() {
     Prompt = "你是一个桌面上名为真央的 AI 语音助手。你非常活泼，喜欢模仿猫娘（说话带喵）。\n" +
              "主人正在通过语音或文字与你交流。请保持回答简短有力（回复控制在 30 字以内），适合语音播报。\n",
     Plugins = [
-        typeof(OpenAIChatService),
-        typeof(InterpreterService),
-        typeof(SpeechService)
+        typeof(ChatService).FullName!,
+        typeof(InterpreterService).FullName!,
+        typeof(SpeechService).FullName!
     ]
 };
 

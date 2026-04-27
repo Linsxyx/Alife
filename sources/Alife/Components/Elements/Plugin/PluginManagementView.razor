@@ -2,17 +2,19 @@
 
 <div style="display: flex; height: 100%; background: #fff; overflow: hidden;">
     <!-- 左侧：目录树 -->
-    <div style="width: 280px; flex-shrink: 0; border-right: 1px solid #f0f0f0; display: flex; flex-direction: column; background: #fafafa;">
+    <div
+        style="width: 280px; flex-shrink: 0; border-right: 1px solid #f0f0f0; display: flex; flex-direction: column; background: #fafafa;">
         <div style="padding: 16px; border-bottom: 1px solid #f0f0f0; background: #fff;">
             <Title Level="4" Style="margin: 0;">插件目录</Title>
-            <Text Type="@TextElementType.Secondary" Style="font-size: 11px;">@(IsReadOnly ? "当前活跃插件" : "全局插件管理")</Text>
+            <Text Type="@TextElementType.Secondary"
+                  Style="font-size: 11px;">@(IsReadOnly ? "当前活跃插件" : "全局插件管理")</Text>
         </div>
         <div style="flex: 1; overflow-y: auto; padding: 12px 8px; background: #fff; min-height: 0;">
-            <PluginFolderUI 
-                Context="@PluginSystem.GetPluginFolder()" 
-                IsReadOnly="@IsReadOnly" 
+            <PluginFolderUI
+                Context="@PluginSystem.GetPluginFolder()"
+                IsReadOnly="@IsReadOnly"
                 PluginFilter="@PluginFilter"
-                OnPluginSelected="HandleSelection" />
+                OnPluginSelected="HandleSelection"/>
         </div>
     </div>
 
@@ -21,17 +23,17 @@
         @if (selectedPluginType != null)
         {
             <div style="padding: 32px; max-width: 1200px;">
-                <PluginDetailView 
-                    PluginType="@selectedPluginType" 
-                    Character="@Character" 
-                    ChatActivity="@ChatActivity"
-                    IsReadOnly="@IsReadOnly" />
+                <PluginDetailView
+                    PluginType="@selectedPluginType"
+                    Character="@Character"
+                    ChatActivity="@ChatActivity"/>
             </div>
         }
         else
         {
-            <Flex Direction="FlexDirection.Vertical" Align="FlexAlign.Center" Justify="FlexJustify.Center" Style="height: 100%; opacity: 0.5;">
-                <Icon Type="@IconType.Outline.Select" Style="font-size: 48px; margin-bottom: 16px;" />
+            <Flex Direction="FlexDirection.Vertical" Align="FlexAlign.Center" Justify="FlexJustify.Center"
+                  Style="height: 100%; opacity: 0.5;">
+                <Icon Type="@IconType.Outline.Select" Style="font-size: 48px; margin-bottom: 16px;"/>
                 <Text Style="font-size: 16px;">请选择一个插件以查看详情</Text>
             </Flex>
         }

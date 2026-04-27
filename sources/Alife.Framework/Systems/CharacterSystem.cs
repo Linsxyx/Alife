@@ -36,7 +36,7 @@ public class CharacterSystem : IDisposable
     }
     public void DeleteCharacter(Character character)
     {
-        storageSystem.DeleteKey($"{character.StorageKey}/index.json");
+        storageSystem.DeleteObject($"{character.StorageKey}/index");
         characters.Remove(character);
         OnChanged?.Invoke();
     }

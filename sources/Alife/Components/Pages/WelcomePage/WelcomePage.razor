@@ -9,7 +9,7 @@
     <WelcomeUI/>
 }
 
-<CharacterHomeUI @ref="characterHomeUI" Character="character" Visibility="false"
+<CharacterHomeUI @key="character?.Name" @ref="characterHomeUI" Character="character" Visibility="false"
                  StateChanged="@(StateHasChanged)"></CharacterHomeUI>
 
 @code {
@@ -30,6 +30,8 @@
             {
                 character = startingCharacter;
                 await InvokeAsync(StateHasChanged);
+                await Task.Delay(100); // 给一点时间让 @key 触发组件重建并更新 ref
+                
                 if (characterHomeUI != null)
                     await characterHomeUI.StartActivity();
             }

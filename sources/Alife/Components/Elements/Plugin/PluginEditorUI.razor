@@ -6,7 +6,7 @@
     Title=@($"配置 {PluginType.FullName}")
     Visible="Visible"
     BodyStyle="height: 50vh;"
-    OnCancel="OnCancel"
+    OnCancel="@(OnCancel)"
     Footer=@(footerUI(this))>
     @if (customUIType != null)
     {
@@ -48,11 +48,11 @@
     {
         base.OnInitialized();
 
-        var attr = PluginType.GetCustomAttribute<PluginAttribute>();
+        PluginAttribute? attr = PluginType.GetCustomAttribute<PluginAttribute>();
 
-        if (attr?.ConfigurationUIType != null)
+        if (attr?.EditorUI != null)
         {
-            customUIType = attr.ConfigurationUIType;
+            customUIType = attr.EditorUI;
             customUIParameters = new Dictionary<string, object> {
                 { "PluginType", PluginType }
             };

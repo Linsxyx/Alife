@@ -30,11 +30,13 @@
 
   <ItemGroup>
     <UpToDateCheckInput Remove="ChatService\OpenAIChatServiceUI.razor" />
+    <UpToDateCheckInput Remove="Function\McpServices\McpServiceUI.razor" />
+    <UpToDateCheckInput Remove="Core\EventService\EventServiceUI.razor" />
   </ItemGroup>
 
   <ItemGroup>
-    <AdditionalFiles Include="Core\ChatService\OpenAIChatServiceUI.razor" />
-    <AdditionalFiles Include="Standard\McpServices\McpServiceUI.razor" />
+    <AdditionalFiles Include="Other\EventService\EventServiceUI.razor" />
+    <AdditionalFiles Include="Other\SpeechService\SpeechServiceUI.razor" />
   </ItemGroup>
 
 </Project>

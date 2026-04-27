@@ -7,7 +7,6 @@ using System.Runtime.InteropServices;
 using Alife.Framework;
 using Alife.Function.Interpreter;
 using Alife.Function.Vision;
-using Microsoft.SemanticKernel;
 
 namespace Alife.Implement;
 
@@ -146,7 +145,15 @@ public partial class VisionService : InteractivePlugin<VisionService>
         {
             const string Filename = "vision_download.png";
             string tempPath = $"{AlifePath.TempFolderPath}/{Filename}";
-            byte[] data = await httpClient.GetByteArrayAsync(url);
+            
+            using HttpRequestMessage request = new(HttpMethod.Get, url);
+            request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            // 针对腾讯多媒体服务器设置 Referer，防止 400/403
+            if (url.Contains("multimedia.nt.qq.com.cn") || url.Contains("qpic.cn")) 
+                request.Headers.Add("Referer", "https://q.qq.com/");
+            using HttpResponseMessage response = await httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            byte[] data = await response.Content.ReadAsByteArrayAsync();
             await File.WriteAllBytesAsync(tempPath, data);
             return tempPath;
         }
