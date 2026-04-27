@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title Alife Launcher
+title Alife Launcher [Auto-Repair]
 
 echo ============================================================
 echo                Alife System Launcher
@@ -9,10 +9,52 @@ echo.
 
 :CHECK_PYTHON
 echo [System] Checking Python environment...
-python --version >nul 2>&1
-if %errorlevel% equ 0 goto PYTHON_READY
 
-echo [Warning] Python is not installed.
+:: 1. ?? python ??????
+python --version >nul 2>&1
+if %errorlevel% neq 0 goto TRY_FIX
+
+:: 2. ???????????????? WindowsApps ????
+where python | findstr /i "WindowsApps" >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [Warning] Windows Store Python stub detected.
+    goto TRY_FIX
+)
+
+:: 3. ?? py ??
+py --version >nul 2>&1
+if %errorlevel% equ 0 (
+    set "PYTHON_CMD=py"
+    goto PYTHON_READY
+)
+set "PYTHON_CMD=python"
+goto PYTHON_READY
+
+:TRY_FIX
+:: --- ???????? ---
+echo [Info] Python not properly configured in PATH. Searching registry...
+set "FOUND_PY_DIR="
+for /f "delims=" %%i in ('powershell -Command "foreach($h in 'HKCU','HKLM'){ $p='Registry::'+$h+'\Software\Python\PythonCore\3.12\InstallPath'; if(Test-Path $p){ (Get-ItemProperty $p).'(default)'; break } }"') do set "FOUND_PY_DIR=%%i"
+
+if defined FOUND_PY_DIR (
+    if exist "!FOUND_PY_DIR!\python.exe" (
+        echo [Info] Found Python at !FOUND_PY_DIR!, fixing environment...
+        set "PATH=!FOUND_PY_DIR!;!FOUND_PY_DIR!\Scripts;!PATH!"
+        
+        :: ????
+        powershell -Command "foreach($n in 'python.exe_0','python3.exe_0','python.exe','python3.exe'){ $p='HKCU:\Software\Microsoft\Windows\CurrentVersion\AppInstaller\AppExecutionAliases\'+$n; if(Test-Path $p){ Set-ItemProperty $p -Name 'State' -Value 0 -ErrorAction SilentlyContinue } }" >nul 2>&1
+        powershell -Command "$p=[Environment]::GetEnvironmentVariable('Path','User'); $l=$p.Split(';',[System.StringSplitOptions]::RemoveEmptyEntries)|Where-Object{$_ -notlike '*Python312*'}; $nList=@('!FOUND_PY_DIR!','!FOUND_PY_DIR!\Scripts')+$l; [Environment]::SetEnvironmentVariable('Path',($nList -join ';'),'User')" >nul 2>&1
+        
+        echo [Success] Environment fixed permanently.
+        :: ?????????????????
+        python --version >nul 2>&1
+        if %errorlevel% equ 0 goto PYTHON_READY
+    )
+)
+:: --- ???????? ---
+
+:: ?????????????
+echo [Warning] Python 3.12 is missing.
 set /p "install=Install Python 3.12.10 now? (y/n): "
 if /i "!install!" neq "y" (
     echo [Error] Python required.
@@ -24,22 +66,23 @@ echo [Info] Downloading Python...
 powershell -Command "Invoke-WebRequest -Uri 'https://repo.huaweicloud.com/python/3.12.10/python-3.12.10-amd64.exe' -OutFile '%TEMP%\python_installer.exe'"
 
 echo [Info] Installing Python...
-start /wait "" "%TEMP%\python_installer.exe" /quiet PrependPath=1
+start /wait "" "%TEMP%\python_installer.exe" /quiet InstallAllUsers=0 PrependPath=1 Include_test=0
+set "EXIT_CODE=%errorlevel%"
 del "%TEMP%\python_installer.exe"
 
-echo [Info] Refreshing PATH...
+:: ?? PATH ???
 set "PS_CMD=$p = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User'); [Environment]::ExpandEnvironmentVariables($p)"
 for /f "delims=" %%i in ('powershell -Command "%PS_CMD%"') do set "PATH=%%i"
-
 goto CHECK_PYTHON
 
 :PYTHON_READY
-echo [Success] Python detected.
-python --version
+echo [Success] Python detected and ready.
+if "!PYTHON_CMD!"=="" set "PYTHON_CMD=python"
+!PYTHON_CMD! --version
 
 echo.
 echo [Info] Configuring Pip...
-pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ >nul 2>&1
+!PYTHON_CMD! -m pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ >nul 2>&1
 
 echo.
 echo [Info] Launching Alife...
@@ -50,5 +93,4 @@ if exist "Outputs\Alife.exe" (
     pause
     exit /b 1
 )
-
 pause
