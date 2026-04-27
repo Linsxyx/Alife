@@ -1,9 +1,5 @@
 using Alife.Basic;
 using System.ComponentModel;
-using System.Text;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
 using Alife.Framework;
 using Alife.Function.Interpreter;
 using Alife.Function.Vision;

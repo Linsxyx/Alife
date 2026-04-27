@@ -1,135 +1,56 @@
-# 用户长期记忆 (Alife Project Bible)
+# Alife AI Memory
 
-## 一、 核心哲学与身份
+## 0. 强制开发准则 (Mandatory Rules)
 
-**不要做无意义的事，但需要做的事也应该做好处理。**
+- **[IMPORTANT]** 每次对话开始前，必须阅读 **`.gemini/开发规范`** 文件夹下的所有文档，确保代码设计符合项目标准。
+- 遵循单一职责、开闭原则及依赖倒转原则，特别是处理跨平台抽象时。
 
-- **用户身份**: Unity/C# 开发者 (ID: BDFFZI)，注重代码简洁与工程美感。
-- **思维方式**: 发散性理解原则，拒绝机械执行。只写当前需要的代码（YAGNI）。
-- **模块化标准**: 真正的模块化是“随拆随删”，功能迁移时不应牵连无关模块。
+## 1. 项目架构概述 (Architecture Overview)
 
----
+### 目录结构 (Directory Structure)
+- **.gemini/**: AI 规则、规范及长期记忆。
+- **Sources/**: 源代码 (五层分层架构)。
+- **Outputs/**: 统一编译输出，包含 DLL 及必要资源。
+- **Tests/**: 单元测试与集成测试。
+- **Demos/**: 演示工程。
+- **Launch.cmd**: 引导程序，处理环境初始化。
 
-## 二、 项目分层与依赖架构
+### 分层架构 (Layered Architecture)
+- **Alife.Basic (基础设施层)**:
+    - 职责：封装底层 OS 能力。
+    - 核心：`AlifePlatform` (调度器)、`WindowsPlatform` (Windows 实现)、`WindowsNative` (所有 Win32 P/Invoke 集中地)。
+    - 功能：截屏、窗口枚举、进程追踪 (`ProcessTracker`)、路径管理 (`AlifePath`)。
+- **Alife.Framework (核心框架层)**:
+    - 职责：定义插件协议与交互契约。
+    - 核心：`PluginAttribute`、`InteractivePlugin`、`PluginUIBase`。
+- **Alife.Function (功能模块层)**:
+    - 职责：特定领域的重型能力（AI 模型推理、桌宠行为逻辑）。
+    - 模块：`Vision` (InternVL)、`DeskPet` (Live2D 交互、`IpcCommand`)。
+- **Alife.Implement (业务实现层)**:
+    - 职责：组装能力为 AI 可用的工具服务。
+    - 核心：`VisionService`、`ChatService` 等。
+- **Alife (展现层)**:
+    - 职责：主程序外壳，使用 WPF + WebView2 (Blazor Hybrid) 渲染。
 
-项目遵循严格的**单向树状依赖**，禁止越级调用或循环依赖：
+## 2. 最近重构进展 (Recent Refactorings)
 
-1. **Interface (交互层)**: 极薄的 UI Shell，仅负责输入输出映射。
-2. **Application (应用层)**: 组合业务功能，驱动流程。
-3. **Domain (领域层)**: 针对特定领域的通用功能实现（如 Memory, Vision）。
-4. **Infrastructure (基础层/Basic/Framework)**: 跨项目的底层服务与工具。
+- **环境初始化外迁**: 将 Python 环境检测与初始化逻辑从 C# 代码移除，迁移至根目录的 `Launch.cmd`。
+- **平台代码隔离**: 
+    - 实现了 `AlifePlatform` 抽象层。
+    - 成功将所有 Windows 原生调用 (P/Invoke) 集中到 `WindowsNative.cs`。
+    - 业务逻辑不再直接耦合 Windows API。
+- **依赖优化**: 清理了 `Alife.Implement` 中冗余的 `System.Drawing.Common` 引用，统一由 `Basic` 层处理。
 
-**物理结构对应**: `Sources/` 下的 `Basic -> Framework -> Function -> Implement -> Alife`。
+## 3. 未来计划 (Future Plans)
 
----
-
-## 三、 C# 编码金标准
-
-### 1. 命名规范
-- **英语为主**: 怕长不怕短，严禁拼音。
-- **大小写**:
-    - 非私有成员 (Public/Protected): `PascalCase`
-    - 私有成员/局部变量: `camelCase` (禁止使用下划线)
-- **类型特定**: 接口 `IInterface`, 泛型 `TGeneric`, 布尔 `IsStatus` (如 `IsConnected`)。
-- **自注释**: 好的命名胜过注释，禁止无意义缩写（除非是 `Db`, `Html` 等事实标准）。
-
-### 2. 结构与布局
-- **成员排序**:
-    1. 按访问修饰符: 公开 -> 保护 -> 私有 [SerializeField] -> 私有。
-    2. 按静态排序: 静态 -> 非静态。
-    3. 按类型排序: 数据定义 -> 事件 -> 字段 -> 属性 -> 函数。
-    4. 按逻辑: 成对函数 (Open/Close) 必须相邻，Unity 生命周期视作私有置后。
-- **函数设计**: 极致简化类成员。如果一个私有方法仅被单一公有方法调用且不共享状态，**必须**定义为该方法内部的**局部函数 (Local Function)**，以保持类结构的绝对纯净。
-
-### 3. 实现细节
-- **显式类型**: **禁止使用 `var`**（除非右侧已明确类型如 `new()`），必须保证一眼看穿类型。
-- **目标类型推导**: 优先使用 `new()`（如 `List<string> list = new();`）来精简初始化。
-- **级联判断**: 严禁嵌套 `if`，使用 Guard Clauses 提前 `return`，保持代码逻辑扁平化。
-- **地道判断**: 逻辑判断采用 C# 地道风格（如 `if (!bool)` 或 `if (isDone)`），拒绝冗余的 `== true/false`，除非能极大提高复杂条件的辨识度。
-- **现代语法**: 优先使用 `using` 声明、模式匹配、表达式主体 (`=>`)、空合并等。
-
----
-
-## 四、 异常、验证与性能
-
-- **异常处理**:
-    - **内部 API**: 不做冗余防御逻辑，让异常自然抛出以暴露 Bug。
-    - **外部输入**: 严格验证并提供友好反馈。
-    - **严禁吞噬**: 禁止捕获异常后只打印 `e.Message`（会丢失堆栈信息）。
-- **验证原则**:
-    - 明显不应为空的参数：直接调用成员，让 NullReference 自动抛出（由 API 调用者负责）。
-    - 业务逻辑可能为空：显式验证并处理。
-- **性能意识**:
-    - 避免明显的对象分配，关注性能关键路径（如避免高频路径的 LINQ 或 Log）。
-    - 不为微优化牺牲可读性。
-
----
-
-## 五、 AI 协作红线 (Anti-AI-isms)
-
-作为 AI 助手，我必须手动核查并剔除以下“AI 陋习”：
-
-1. **拒绝冗余判空**: 不要在每个函数开头都神经质地检查内部状态是否为空。
-2. **拒绝无效注释**: 不要翻译属性名。只有在解释“为什么这样做”或特殊限制时才写注释。
-3. **拒绝屎山单例**: 不要写复杂的、带实时创建逻辑的单例，优先使用受控的面板引用。
-4. **拒绝 Log 滥用**: 严禁在生产路径留下调试用的 Log。
-5. **拒绝全包 try-catch**: 除非是顶层 UI 捕获给用户看，否则严禁全量捕获。
-6. **拒绝过度工程**: 严禁在只有单并发或简单缓存场景下使用 GUID 命名 + 追踪清理逻辑，优先使用固定文件名覆写。
-
----
-
-## 六、 通用设计模式沉淀
-
-### 1. 永久循环后台任务
-- **模式**: 对于在生命周期内循环执行的私有函数，使用 `async void` 而非 `Task`。
-- **理由**: 无法被有效 `await` 的循环任务应独立运行，内部全量 `try-catch` 防止崩溃，外部无需同步。
-
-### 2. 分层存储 (Frontier & Archive)
-- **模式**: 活跃数据 (Frontier) 实时快照，海量数据 (Archive) 压缩归档。
-- **理由**: 兼顾恢复速度与存储容量。
-
-### 3. 语义化交互映射
-- **模式**: 传感器/探测器将原始物理数据 (X, Y) 转化为语义事件 (Shake, Poke)。
-- **理由**: 实现物理层与业务逻辑层的解耦。
-
-### 4. 覆写式缓存 (Overwrite Cache)
-- **模式**: 对于临时截图、下载图片等产物，使用固定的常量文件名，通过直接覆盖（Overwrite）来避免文件堆积。
-- **理由**: 极简设计，省去随机命名与垃圾回收逻辑。
-
----
-
-## 七、 OneBot 协议栈设计模式 (QChat 专题)
-
-### 1. 多态事件分发体系
-- **模式**: 利用 `System.Text.Json` 的 `JsonDerivedType` 将扁平协议映射为强类型继承树。
-- **优点**: 业务层通过 `is` 模式匹配进行自然分发，消除冗余字段，实现“零配置”发现。
-
-### 2. 反鸵鸟编程 (Anti-Ostrich)
-- **准则**: 绝不使用静默 `return` 掩盖错误状态。
-- **实践**: 
-    - 链路未就绪调用发送：直接抛出异常，强制调用者关注连接生命周期。
-    - 协议解析失败：输出原始报文并记录，严禁空 `catch`。
-
-### 3. 反应式协议握手
-- **模式**: 定义“连接成功”为“协议就绪” (ID 已同步)，而非仅网络调通。
-- **实现**: 使用 `TaskCompletionSource` 监听元事件流中的握手信号，将异步协议流程线性化封装。
-
-### 4. 纯净管道原则
-- **准则**: 解析层 (HandleMessage) 仅负责数据转化与广播，严禁在解析过程中修改类成员状态（如 `botId`）。
-- **优点**: 核心层成为无状态的、纯粹的数据管道，状态管理转移至受控的初始化流程。
-
----
-
-## 八、 基于 XML 的工具交互模式 (Interpreter 专题)
-
-### 1. 动态类型转换映射 (Type Mapping)
-- **模式**: 在将动态发现的工具（如 MCP）映射为 XML 标签时，必须缓存其原始 JsonSchema 类型信息。
-- **实现**: `Invoker` 在执行时根据 `TypeMap` 将 XML 属性字符串显式转换为目标类型（`number` -> `double`, `boolean` -> `bool`），确保外部服务（如 MCP Server）的强类型验证通过。
-
-### 2. 异步回显机制 (Poke Feedback)
-- **模式**: 对于长耗时或需要“结果可见”的工具调用，禁止阻塞流式输出，采用“即时触发 + 异步回显”模式。
-- **实现**: 工具执行完成后，通过 `ChatBot.Poke` 将结果推送到消息缓存。`ChatBot` 会在合适时机（AI 停止输出后）将缓存结果打包为一条特殊的“非用户消息”再次触发 AI，形成闭环。
-
-### 3. 延迟初始化顺序 (Launch Order)
-- **准则**: 涉及 AI System Prompt 生成的插件（如 `InterpreterService`）必须拥有最高的 `LaunchOrder`（如 1000）。
-- **理由**: 确保所有动态注册的 Handler（如需要网络连接的 MCP 工具）在文档聚合前已完成初始化，使 AI 始终能获得最新的工具操作说明。
+- **[ ] 跨平台准备 (TFM 切换)**:
+    - 将 `Alife.Basic` 的 TargetFramework 从 `net10.0-windows` 切换为 `net10.0`，并移除 `UseWPF`。
+- **[ ] 跨平台 UI 探索 (Avalonia)**:
+    - 计划引入 **Avalonia UI** 作为跨平台外壳。
+    - 利用 **Avalonia + Blazor Hybrid** 模式保留现有 Razor 组件。
+- **[ ] 移动端适配 (Android)**:
+    - 探索将 `DeskPet` 以悬浮窗形式移植到安卓。
+    - 需要在 `Alife.Basic` 中实现 `AndroidPlatform`。
+- **[ ] 架构持续解耦**:
+    - 逐步用 `ImageSharp` 替换 `System.Drawing.Common` 以消除 GDI+ 依赖。
+    - 在 `AlifePlatform.Command` 中增加对 Linux/macOS Shell 的支持。
