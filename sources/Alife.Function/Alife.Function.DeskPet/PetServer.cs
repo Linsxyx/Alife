@@ -19,11 +19,11 @@ public class PetServer : IAsyncDisposable
     public PetServer(string modelPath)
     {
         //加载模型信息
-        string modelJsonPath = Path.Combine(AlifePath.OutputsFolderPath, $"wwwroot/model/{modelPath}");
+        string modelJsonPath = Path.Combine(AlifePath.OutputsFolderPath, $"Alife.Function.DeskPet/wwwroot/model/{modelPath}");
         metadata = PetModelMetadata.Load(modelJsonPath);
 
         //创建进程
-        string petExePath = Path.Combine(AlifePath.OutputsFolderPath, "Alife.Function.DeskPet.exe");
+        string petExePath = Path.Combine(AlifePath.OutputsFolderPath, "Alife.Function.DeskPet/Alife.Function.DeskPet.exe");
         if (File.Exists(petExePath) == false)
             throw new FileNotFoundException($"找不到桌宠程序: {petExePath}");
         nativeProcess = new Process {

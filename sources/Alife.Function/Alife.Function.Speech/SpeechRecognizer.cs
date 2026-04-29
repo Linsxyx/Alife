@@ -14,6 +14,8 @@ public class SpeechRecognizer : IDisposable
         if (IsRecognizing)
             throw new InvalidOperationException("已在运行中，Stop 后才能再次 Start。");
         IsRecognizing = true;
+        lock (vad)
+            vad.Clear();
     }
     public void Stop()
     {

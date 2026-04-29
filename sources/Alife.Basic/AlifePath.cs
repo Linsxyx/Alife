@@ -44,12 +44,12 @@ public static class AlifePath
 
         // 更新配置
         StorageFolderPath = newPath;
-        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "storage_path.txt"), newPath);
+        File.WriteAllText(Path.Combine(OutputsFolderPath, "storage_path.txt"), newPath);
     }
 
     static AlifePath()
     {
-        OutputsFolderPath = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+        OutputsFolderPath = Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar))!;
 
         string configPath = Path.Combine(OutputsFolderPath, "storage_path.txt");
         StorageFolderPath = File.Exists(configPath)

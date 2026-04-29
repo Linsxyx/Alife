@@ -14,20 +14,19 @@ mkdir "%DIST_DIR%"
 
 :: 2. Publish Main Application
 echo [1/2] Publishing Main Application (Alife)...
-dotnet publish "Sources\Alife\Alife.csproj" -c Release -o "%DIST_DIR%" --self-contained false /p:PublishSelfContained=false
+dotnet publish "Sources\Alife\Alife.csproj" -c Release -o "%DIST_DIR%\Alife" --self-contained false /p:PublishSelfContained=false
 
 :: 3. Publish DeskPet module
 echo [2/2] Publishing DeskPet Module...
-dotnet publish "Sources\Alife.Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj" -c Release -o "%DIST_DIR%" --self-contained false /p:PublishSelfContained=false
+dotnet publish "Sources\Alife.Function\Alife.Function.DeskPet\Alife.Function.DeskPet.csproj" -c Release -o "%DIST_DIR%\Alife.Function.DeskPet" --self-contained false /p:PublishSelfContained=false
 
 :: 4. Copying secondary assets
 echo [Asset] Copying extra assets and scripts...
-copy "Sources\Alife.Function\Alife.Function.Vision\vision_bridge.py" "%DIST_DIR%\" /y >nul
-copy "Launch.cmd" "%DIST_DIR%\" /y >nul
+@REM copy "Sources\Alife.Function\Alife.Function.Vision\vision_bridge.py" "%DIST_DIR%\Alife\" /y >nul
 
-:: 5. Final pollution check and cleanup (Safety Net)
+:: 5. Final pollution check and cleanup (Safety Net for Alife)
 echo [Clean] Running final runtime pollution check...
-pushd "%DIST_DIR%"
+pushd "%DIST_DIR%\Alife"
 del /f /q hostfxr.dll 2>nul
 del /f /q hostpolicy.dll 2>nul
 del /f /q coreclr.dll 2>nul

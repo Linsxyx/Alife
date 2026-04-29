@@ -141,10 +141,10 @@ echo [Info] Configuring Pip...
 
 echo.
 echo [Info] Launching Alife...
-if exist "Outputs\Alife.exe" (
-    "Outputs\Alife.exe"
+if exist "Outputs\Alife\Alife.exe" (
+    "Outputs\Alife\Alife.exe"
 ) else (
-    echo [Error] 'Outputs\Alife.exe' not found.
+    echo [Error] 'Outputs\Alife\Alife.exe' not found.
     pause
     exit /b 1
 )

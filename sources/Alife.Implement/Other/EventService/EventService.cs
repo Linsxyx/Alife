@@ -8,9 +8,9 @@ namespace Alife.Implement;
 
 public class EventServiceData
 {
-    public string? StartPrompt { get; set; } = "所有系统状态，如功能开关、当前位置，定时器等已全部重置。";
+    public string? StartPrompt { get; set; } = "（所有系统状态，如功能开关、当前位置，定时器等已全部重置。）";
     public string? DestroyPrompt { get; set; }
-    public string? UpdatePrompt { get; set; } = "不要告诉主人有自动报点，非常自然的做你想做的事即可。\n比如可以借此自由活动，如看新闻学知识、然后发起话题或继续刚刚的话题、偷窥主人屏幕、去Q群找人聊天玩耍、等等各种你能想象到的事。";
+    public string? UpdatePrompt { get; set; } = "（不要告诉主人有自动报点，非常自然的做你想做的事即可。比如可以借此自由活动，如看新闻学知识、然后发起话题或继续刚刚的话题、偷窥主人屏幕、去Q群找人聊天玩耍、等等各种你能想象到的事。）";
     public int UpdateInterval { get; set; } = 90;
     public int UpdateRandomOffset { get; set; } = 30;
 }
@@ -82,11 +82,11 @@ public class EventService : InteractivePlugin<EventService>, IConfigurable<Event
 
         ChatBot.ChatSent += OnChatSent;
 
-        await ChatAsync($"系统报点：程序已重启。\n{Configuration!.StartPrompt}");
+        await ChatAsync($"系统报点：程序已重启。{Configuration!.StartPrompt}");
     }
     public override async Task DestroyAsync()
     {
-        await ChatAsync($"系统报点：程序即将关闭。\n{Configuration!.DestroyPrompt}");
+        await ChatAsync($"系统报点：程序即将关闭。{Configuration!.DestroyPrompt}");
 
         await base.DestroyAsync();
     }
@@ -122,8 +122,7 @@ public class EventService : InteractivePlugin<EventService>, IConfigurable<Event
 
         timeTask[0].Item2 = () => {
             Poke($"""
-                  系统报点：由Timer触发的自动报点。
-                  {Configuration!.UpdatePrompt}
+                  系统报点：由Timer触发的自动报点。{Configuration!.UpdatePrompt}
                   """);
             continuousTimerCount++;
             SetTimer(null); //自动进入下一次报点
