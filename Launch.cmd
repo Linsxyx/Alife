@@ -140,6 +140,49 @@ echo [Info] Configuring Pip...
 !PYTHON_CMD! -m pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ >nul 2>&1
 
 echo.
+:CHECK_NODE
+echo [System] Checking Node.js environment...
+node --version >nul 2>&1
+if %errorlevel% neq 0 goto INSTALL_NODE
+goto NODE_READY
+
+:INSTALL_NODE
+echo [Warning] Node.js is missing.
+set /p "install_node=Install Node.js 20.x LTS now? (y/n): "
+if /i "!install_node!" neq "y" (
+    echo [Info] Skipping Node.js installation. Some features may not work.
+    goto LAUNCH_ALIFE
+)
+
+echo [Info] Downloading Node.js (this may take a minute)...
+powershell -Command "Invoke-WebRequest -Uri 'https://repo.huaweicloud.com/nodejs/v20.18.0/node-v20.18.0-x64.msi' -OutFile '%TEMP%\node_installer.msi'"
+
+echo [Info] Installing Node.js...
+start /wait "" msiexec /i "%TEMP%\node_installer.msi" /qn /norestart
+del "%TEMP%\node_installer.msi"
+
+:: Refresh PATH
+set "PS_CMD=$p = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User'); [Environment]::ExpandEnvironmentVariables($p)"
+for /f "delims=" %%i in ('powershell -Command "%PS_CMD%"') do set "PATH=%%i"
+goto CHECK_NODE
+
+:NODE_READY
+echo [Success] Node.js detected and ready.
+node --version
+
+:: Fix npm Roaming folder bug
+if not exist "%AppData%\npm" mkdir "%AppData%\npm"
+
+echo [Info] Configuring NPM Mirror...
+call npm config set registry https://registry.npmmirror.com >nul 2>&1
+
+:: 清除可能导致 400/404 错误的 Playwright 镜像设置，回归默认
+set "PLAYWRIGHT_DOWNLOAD_HOST="
+setx PLAYWRIGHT_DOWNLOAD_HOST "" >nul 2>&1
+echo [Info] Playwright mirror settings cleared to use defaults.
+
+:LAUNCH_ALIFE
+echo.
 echo [Info] Launching Alife...
 if exist "Outputs\Alife\Alife.exe" (
     "Outputs\Alife\Alife.exe"
