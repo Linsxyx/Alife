@@ -374,7 +374,7 @@ public class QChatService(FunctionService functionService, ILogger<QChatService>
         string cachedMessage =
             $"""
 
-             > 来自群 {state.Tag} 的消息
+             > 以下是群 {state.Tag} 的消息
              {string.Join("\n", state.MessageBuffer)}
              """;
 
