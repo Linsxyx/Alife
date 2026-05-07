@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using Alife.Framework;
 using Alife.Function.Browser;
 using Alife.Function.Interpreter;
@@ -7,19 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Alife.Implement.Function;
 
 [Plugin("网上冲浪", "让 AI 像人一样操控浏览器：打开网页、观察页面、点击、打字、滚动、执行脚本。")]
-[Description(@"你拥有一个真实的、用户可见的浏览器窗口。通过以下函数来操控它：
-- navigate: 打开网址
-- observe: 观察当前页面内容和可交互元素（返回标题、文本和按钮选择器）
-- click: 点击页面上的元素
-- type: 在输入框中打字
-- scroll: 滚动页面
-- execute_script: 在当前页面执行任意 JavaScript 代码
-- download: 下载文件
-
-重要规则：
-1. **遇到障碍别放弃**：如果你遇到了验证码 (CAPTCHA)、滑动验证、登录墙或者需要扫码，不要直接报错或放弃任务。
-2. **求助主人**：你应该通过对话告诉主人：'主人，我遇到了验证码，请在浏览器窗口中帮我处理一下'。
-3. **等待与继续**：在主人处理完后，你可以重新调用 observe 来确认状态并继续执行剩下的任务。")]
+[Description(@"你拥有一个属于自己的、真实的、用户可见的浏览器窗口，你可以像真人一样去操作它。
+提示：如果你遇到了需要验证、登录之类的页面，不要直接放弃，可以尝试让主人进行协助。")]
 public class SurfingService(FunctionService functionService)
     : InteractivePlugin<SurfingService>, IDisposable
 {
@@ -96,27 +86,15 @@ public class SurfingService(FunctionService functionService)
         Poke($"[Scroll] {result}");
     }
 
-    [XmlFunction("execute_script")]
-    [Description("在浏览器当前页面中执行任意一段 JavaScript 代码并返回执行结果。请直接返回你想获取的数据（如：return document.title; 或直接写表达式），无需手动调用 JSON.stringify。")]
-    public async Task ExecuteScript(XmlExecutorContext context,
-        [Description("为保持兼容性保留的参数，请勿使用，将代码直接放在标签内容中")] string script = "")
+    [XmlFunction("runjs")]
+    [Description("在浏览器的控制台中执行js代码。")]
+    public async Task ExecuteScript(XmlExecutorContext context, [XmlContent] string script = "")
     {
-        string userCode;
-        if (context.CallMode == CallMode.OneShot)
-        {
-            if (string.IsNullOrWhiteSpace(script))
-                throw new Exception("请将 JavaScript 代码放在标签内容中，不要使用自闭合标签。例如：<execute_script>代码...</execute_script>");
-            userCode = script;
-        }
-        else if (context.CallMode == CallMode.Content)
-        {
-            userCode = context.Content;
-            if (string.IsNullOrWhiteSpace(userCode)) return;
-        }
-        else return;
+        if (context.CallMode != CallMode.Closing)
+            return;
 
         // 诊断版：极简包装，直接 eval
-        string escapedCode = System.Text.Json.JsonSerializer.Serialize(userCode);
+        string escapedCode = JsonSerializer.Serialize(context.FullContent.Trim());
         string safeScript = $@"
         (function() {{
             const code = {escapedCode};
@@ -149,7 +127,7 @@ public class SurfingService(FunctionService functionService)
     public override async Task AwakeAsync(AwakeContext context)
     {
         await base.AwakeAsync(context);
-        functionService.RegisterHandler(this, "execute_script");
+        functionService.RegisterHandler(this, "runjs");
     }
 
     public void Dispose() => browser.Dispose();

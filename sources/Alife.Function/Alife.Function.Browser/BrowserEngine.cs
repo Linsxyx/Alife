@@ -291,7 +291,7 @@ public class BrowserEngine : IDisposable
             {
                 var res = await webView.CoreWebView2.ExecuteScriptAsync(script);
                 // 仅用于调试底层通路
-                Console.WriteLine($"[WebView2 Raw] {res}");
+                // Console.WriteLine($"[WebView2 Raw] {res}");
                 return res;
             }
             catch (Exception ex)
