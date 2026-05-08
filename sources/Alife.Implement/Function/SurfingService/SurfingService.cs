@@ -19,63 +19,69 @@ public class SurfingService(FunctionService functionService)
     readonly BrowserEngine browser = new();
 
     [XmlFunction("navigate")]
-    [Description("打开指定网址。成功后会自动为页面组件分配 [ID] 并返回观察结果。")]
-    public async Task Navigate(XmlExecutorContext context,
-        [Description("要打开的网址")] string url)
+    [Description("跳转到指定网址。")]
+    public async Task Navigate(XmlExecutorContext context, string url)
     {
         if (context.CallMode != CallMode.OneShot)
             throw new Exception("请使用自闭合标签调用。");
 
-        var result = await browser.NavigateAsync(url);
-        if (result.Success)
-        {
-            string observation = await browser.ObserveAsync();
-            Poke($"[Navigate] 已打开: {url}\n[Auto-Observe] 页面内容：\n{observation}");
-        }
-        else
-        {
-            Poke($"[Navigate] 加载失败 (HTTP {result.StatusCode})");
-        }
+        await browser.NavigateAsync(url);
+        string observation = await browser.ObserveAsync();
+        Poke($"[Navigate] 已打开: {url}\n[Auto-Observe] 页面内容 (提示：若遇到人机验证或登录，可请求主人协助)：\n{observation}");
     }
 
 
     [XmlFunction("observe")]
-    [Description("观察当前页面：系统会自动为交互组件分配 [ID] 并返回其描述。")]
-    public async Task Observe(XmlExecutorContext context,
-        [Description("观察区域索引（用于翻页），从 1 开始，默认 1")] int scope = 1)
+    [Description(
+        "观察当前页面：返回标题、正文及交互组件（会自动为页面组件分配[ID]，可用`document.querySelector(\"[data-alife-id='ID']\")`定位）。注意：若当前页（PAGING）没看到目标，说明组件被分页了，必须增加 scope 索引（如 observe(scope=2)）来翻页查看")]
+    public async Task Observe(XmlExecutorContext context, [Description("观察的页面区域，从1开始")] int scope)
     {
         if (context.CallMode != CallMode.OneShot)
             throw new Exception("请使用自闭合标签调用。");
+        if (scope == 0)
+            throw new Exception("必须提供要观察的页面区域：scope");
 
         string result = await browser.ObserveAsync(scope);
-        Poke($"[Observe] 页面状态：\n{result}");
+        Poke($"[Observe] 页面状态 (提示：若遇到人机验证或登录，可请求主人协助)：\n{result}");
     }
 
     [XmlFunction("runjs")]
-    [Description("执行 JavaScript。提示：使用 `document.querySelector(\"[data-alife-id='ID']\")` 定位 observe 返回的组件。建议将代码写在标签内容中。")]
+    [Description("在浏览器中执行JS表达式。")]
     public async Task ExecuteScript(XmlExecutorContext context, [XmlContent] string script = "")
     {
         if (context.CallMode != CallMode.Closing)
             return;
 
         string code = context.FullContent.Trim();
-        // 使用自执行函数包裹，确保能捕获返回值
-        string wrappedCode = JsonSerializer.Serialize(code);
-        string safeScript = $@"
-        (function() {{
-            try {{
-                let r = eval({wrappedCode});
-                if (r instanceof Promise) return r.then(v => JSON.stringify(v));
-                return JSON.stringify(r === undefined ? '(null/undefined)' : r);
-            }} catch (e) {{
-                return 'ERROR: ' + e.toString();
-            }}
-        }})()";
+        string serializedCode = JsonSerializer.Serialize(code);
+
+        // 智能双模执行：支持控制台日志捕获、eval 表达式和 return 语句。
+        string safeScript = "(function() {\n" +
+                            "    let logs = [];\n" +
+                            "    let oldLog = console.log;\n" +
+                            "    console.log = function() { logs.push(Array.from(arguments).map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(' ')); };\n" +
+                            "    try {\n" +
+                            "        let r;\n" +
+                            "        try {\n" +
+                            "            r = eval(" + serializedCode + ");\n" +
+                            "        } catch (e) {\n" +
+                            "            r = (function() {\n" +
+                            "                " + code + "\n" +
+                            "            })();\n" +
+                            "        }\n" +
+                            "        let logPrefix = logs.length > 0 ? '[Console Log]\\n' + logs.join('\\n') + '\\n' : '';\n" +
+                            "        if (r === undefined) return logPrefix + (logs.length > 0 ? '' : '[Status] Success (No return value)');\n" +
+                            "        return logPrefix + '[Status] Success\\n[Return] ' + (typeof r === 'string' ? r : JSON.stringify(r, null, 2));\n" +
+                            "    } catch (e) {\n" +
+                            "        return '[Status] Error: ' + e.toString();\n" +
+                            "    } finally {\n" +
+                            "        console.log = oldLog;\n" +
+                            "    }\n" +
+                            "})()";
 
         string result = await browser.ExecuteScriptAsync(safeScript);
         Poke($"[RunJS] 执行结果：\n{result}");
     }
-
 
 
     [XmlFunction("download")]

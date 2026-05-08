@@ -193,12 +193,13 @@ public class BrowserEngine : IDisposable
                 const totalScopes = Math.max(Math.ceil(((document.body ? document.body.innerText.length : 0)) / TEXT_SIZE), linkScopes, 1);
 
                 // --- Build custom layout ---
-                let output = `TITLE:${{document.title}}\nURL:${{location.href}}\nSTATUS:${{scope}}/${{totalScopes}}\n`;
+                let output = `TITLE:${{document.title}}\nURL:${{location.href}}\n`;
+                output += `PAGING:${{scope}}/${{totalScopes}} (Hint: If you don't see the element you need, use observe(scope=${{scope+1}}) to see the next page of components)\n`;
                 output += `${{info.text}}\n\n`;
 
                 let componentsStr = """";
                 allInputs.forEach(i => {{
-                    componentsStr += `${{i.text}}:${{i.type}}[${{i.id}}]\n`;
+                    componentsStr += `${{i.text}}:input[${{i.id}}]\n`;
                 }});
                 linksPage.forEach(l => {{
                     if (l.id) {{
@@ -239,14 +240,14 @@ public class BrowserEngine : IDisposable
             }
         });
 
-        if (string.IsNullOrEmpty(rawRes) || rawRes == "null") return null;
+        if (string.IsNullOrEmpty(rawRes) || rawRes == "null") return "";
 
         try
         {
             using var doc = JsonDocument.Parse(rawRes);
             if (doc.RootElement.ValueKind == JsonValueKind.String)
             {
-                return doc.RootElement.GetString();
+                return doc.RootElement.GetString() ?? "";
             }
             return rawRes;
         }

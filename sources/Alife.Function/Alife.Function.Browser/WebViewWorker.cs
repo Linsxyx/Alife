@@ -82,11 +82,11 @@ public class WebViewWorker : IDisposable
                 
                 webView.CoreWebView2.Settings.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edge/122.0.0.0";
                 
-                // webView.CoreWebView2.NewWindowRequested += (sender, ev) =>
-                // {
-                //     ev.Handled = true;
-                //     webView.CoreWebView2.Navigate(ev.Uri);
-                // };
+                webView.CoreWebView2.NewWindowRequested += (sender, ev) =>
+                {
+                    ev.Handled = true;
+                    webView.CoreWebView2.Navigate(ev.Uri);
+                };
 
                 initialized = true;
 
