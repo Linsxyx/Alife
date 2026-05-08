@@ -1,3 +1,8 @@
+
+下面都是ai写的，很多都错的，目前还在全力开发中，大部分功能都ok，确实是一个可用的状态，不够很多细节我还不满意。还是ai写代码还是太糟糕了，功能性代码还是得人工翻新一遍才好。
+
+---
+
 # Alife - 创造赛博生命 (Creating Cyber Life)
 
 ![Alife Logo](https://img.shields.io/badge/Alife-AI_Assistant-blue?style=for-the-badge)
