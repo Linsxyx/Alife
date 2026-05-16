@@ -18,9 +18,6 @@ public partial class App
         Console.OutputEncoding = Encoding.UTF8;
         Console.InputEncoding = Encoding.UTF8;
 
-        // Alife官方插件
-        Assembly.Load("Alife.Implement");
-
         ServiceCollection services = new();
         // 基础 Blazor Desktop 支持
         services.AddWpfBlazorWebView();

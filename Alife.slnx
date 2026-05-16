@@ -19,18 +19,17 @@
   <Folder Name="/Sources/Alife.Function/">
     <Project Path="Sources/Alife.Function/Alife.Function.DeskPet/Alife.Function.DeskPet.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Interpreter/Alife.Function.Interpreter.csproj" />
-    <Project Path="Sources/Alife.Function/Alife.Function.Memory\Alife.Function.Memory.csproj" Type="C#" />
+    <Project Path="Sources/Alife.Function/Alife.Function.Memory\Alife.Function.Memory.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.QChat/Alife.Function.QChat.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Speech/Alife.Function.Speech.csproj" />
     <Project Path="Sources/Alife.Function/Alife.Function.Vision/Alife.Function.Vision.csproj" />
-    <Project Path="Sources\Alife.Function\Alife.Function.Browser\Alife.Function.Browser.csproj" Type="C#" />
+    <Project Path="Sources\Alife.Function\Alife.Function.Browser\Alife.Function.Browser.csproj" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/Alife.Test.DeskPet/Alife.Test.DeskPet.csproj" />
     <Project Path="Tests/Alife.Test.Interpreter/Alife.Test.Interpreter.csproj" />
-    <Project Path="Tests\Alife.Test.Browser\Alife.Test.Browser.csproj" Type="C#" />
-    <Project Path="Tests\Alife.Test.Memory\Alife.Test.Memory.csproj" Type="C#" />
-    <Project Path="Tests\Alife.Test.Python\Alife.Test.Python.csproj" Type="C#" />
-    <Project Path="Tests\Alife.Test.QChat\Alife.Test.QChat.csproj" Type="C#" />
+    <Project Path="Tests\Alife.Test.Browser\Alife.Test.Browser.csproj" />
+    <Project Path="Tests\Alife.Test.Python\Alife.Test.Python.csproj" />
+    <Project Path="Tests\Alife.Test.QChat\Alife.Test.QChat.csproj" />
   </Folder>
 </Solution>

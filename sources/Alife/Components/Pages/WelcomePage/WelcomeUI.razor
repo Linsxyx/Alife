@@ -103,12 +103,17 @@
         character.Plugins.Add(PluginSystem.GetPluginID(typeof(ChatService)));
         character.Plugins.Add(PluginSystem.GetPluginID(typeof(FunctionService)));
         character.Plugins.Add("Alife.Implement.EventService");
+        character.Plugins.Add("Alife.Implement.MessageFilterService");
         character.Plugins.Add("Alife.Implement.MemoryService");
-        character.Plugins.Add("Alife.Implement.McpService");
-        character.Plugins.Add("Alife.Implement.SkillService");
+        character.Plugins.Add("Alife.Implement.VirtualWorldService");
+        character.Plugins.Add("Alife.Implement.QChatService");
         character.Plugins.Add("Alife.Implement.SpeechService");
         character.Plugins.Add("Alife.Implement.DeskPetService");
+        character.Plugins.Add("Alife.Implement.McpService");
+        character.Plugins.Add("Alife.Implement.SkillService");
         character.Plugins.Add("Alife.Implement.PythonService");
+        character.Plugins.Add("Alife.Implement.SurfingService");
+        character.Plugins.Add("Alife.Implement.VisionService");
         CharacterSystem.SaveCharacter(character);
 
         isQuickSetupVisible = false;
