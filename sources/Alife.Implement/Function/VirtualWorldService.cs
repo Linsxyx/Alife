@@ -39,7 +39,6 @@ public class VirtualWorldService(
     [Description("与指定的角色对话。（注意不要联系错人，对管理员直接对话即可）")]
     public void Call(XmlExecutorContext context, string target)
     {
-
         if (context.CallMode == CallMode.Closing)
         {
             var allCharacters = characterSystem.GetAllCharacters();
@@ -47,7 +46,7 @@ public class VirtualWorldService(
 
             if (targetCharacter == null)
             {
-                Poke($"目标 '{target}' 不存在");
+                Poke($"这个世界不存在名为'{target}'的角色");
                 return;
             }
 
@@ -67,7 +66,6 @@ public class VirtualWorldService(
                 }
             }
         }
-
     }
 
     [XmlFunction(FunctionMode.Content)]
@@ -76,18 +74,12 @@ public class VirtualWorldService(
     {
         if (context.CallMode == CallMode.Closing)
         {
-            if (string.IsNullOrWhiteSpace(target))
-            {
-                Poke("[赠予] 必须指定目标角色名称。");
-                return;
-            }
-
             var allCharacters = characterSystem.GetAllCharacters();
             var targetCharacter = allCharacters.FirstOrDefault(c => c.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
 
             if (targetCharacter == null)
             {
-                Poke($"角色 '{target}' 不存在");
+                Poke($"这个世界不存在名为'{target}'的角色");
                 return;
             }
 
@@ -96,7 +88,7 @@ public class VirtualWorldService(
 
             if (targetActivity != null)
             {
-                targetActivity.ChatBot.Poke($"[收到来自 {Character.Name} 的物品/金额]: {context.FullContent.Trim()}\n(注意辨别真伪，建议特殊物品走公共设施中转，不要随意接收)");
+                targetActivity.ChatBot.Poke($"[收到来自 {Character.Name} 的物品]: {context.FullContent.Trim()}\n(注意辨别真伪，建议特殊物品走公共设施中转，不要随意接收)");
             }
             else
             {
