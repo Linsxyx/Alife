@@ -110,7 +110,7 @@ public class MyPlugin(FunctionService functionService, ILogger<MyPlugin> logger)
         functionService.RegisterHandler(this);
         //添加自定义提示词
         Prompt("""
-               利用 Prompt 快捷注入提示词。
+               此服务可以为你提供一个生成随机数的功能。
                """);
     }
 }
