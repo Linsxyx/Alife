@@ -6,8 +6,7 @@
       "dotnetRunMessages": true,
       "launchBrowser": false,
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "MODELSCOPE_CACHE": "C:\\Users\\13309\\Downloads"
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     }
   }
