@@ -62,11 +62,13 @@ public partial class ChatActivity
             }
 
             //赋值插件配置数据
-            foreach (Plugin pluginInstance in allPlugins)
+            for (int index = 0; index < allPlugins.Length; index++)
             {
+                Plugin pluginInstance = allPlugins[index];
                 if (pluginInstance is IConfigurable configurable)
                 {
                     Type pluginType = pluginInstance.GetType();
+                    progress?.Report(($"配置服务 {pluginType.Name}", (float)index / serviceBuilder.Count));
                     object? configData = configurationSystem.GetConfiguration(pluginType, character.StorageKey);
                     configurable.Configuration = configData;
                 }
@@ -87,7 +89,7 @@ public partial class ChatActivity
             for (int index = 0; index < allPlugins.Length; index++)
             {
                 Plugin pluginInstance = allPlugins[index];
-                progress?.Report(($"初始化服务 {pluginInstance.GetType().Name}", (float)index / allPlugins.Length));
+                progress?.Report(($"激活服务 {pluginInstance.GetType().Name}", (float)index / allPlugins.Length));
 
                 await pluginInstance.AwakeAsync(awakeContext);
             }

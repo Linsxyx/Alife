@@ -4,10 +4,9 @@ import sys, json, torch, traceback, io
 sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8', errors='replace')
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-from PIL import Image
-from transformers import AutoModel, AutoTokenizer
-import torchvision.transforms as T
-from torchvision.transforms.functional import InterpolationMode
+
+from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor, BitsAndBytesConfig
+from qwen_vl_utils import process_vision_info
 
 # 核心设备选择逻辑
 device = None
@@ -18,58 +17,84 @@ else:
     print("WARNING: CUDA NOT FOUND. Vision Large Model is disabled.", file=sys.stderr)
 
 """
-Vision Bridge - InternVL2.5-1B 稳定版 (CUDA Required for LLM)
+Vision Bridge - Qwen2.5-VL-3B-Instruct 稳定版 (4-bit 量化)
 """
 
 def load_model(path):
     if device is None:
         return None, None
         
-    # 猴子补丁：避开 InternVL 在某些环境下的 meta tensor 报错
-    orig_linspace = torch.linspace
-    torch.linspace = lambda *args, **kwargs: orig_linspace(*args, **{**kwargs, "device": "cpu"}) if "device" not in kwargs else orig_linspace(*args, **kwargs)
-    
     try:
-        tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True, fix_mistral_regex=True)
-        compute_dtype = torch.float16
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4"
+        )
         
-        # 加载模型到 CUDA 设备
-        model = AutoModel.from_pretrained(
+        # 加载量化模型 (注意：必须使用 Qwen2_5_VLForConditionalGeneration 而不是 Qwen2VL)
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             path, 
-            dtype=compute_dtype, 
-            trust_remote_code=True
-        ).to(device).eval()
+            dtype=torch.float16, 
+            quantization_config=quantization_config,
+            device_map="auto"
+        )
         
-        return model, tokenizer
-    finally:
-        torch.linspace = orig_linspace
+        processor = AutoProcessor.from_pretrained(path)
+        
+        return model, processor
+    except Exception as e:
+        print(f"Failed to load model: {e}", file=sys.stderr)
+        raise e
 
-def query(model, tokenizer, req):
+def query(model, processor, req):
     if model is None:
         return {"status": "ok", "result": "[AI 深度视觉分析已禁用：未检测到兼容的 NVIDIA GPU 或 CUDA 环境]"}
 
     path = req.get("image_path")
     if not path: return {"status": "error", "message": "image_path is required"}
     
-    transform = T.Compose([
-        T.Lambda(lambda img: img.convert("RGB")),
-        T.Resize((448, 448), interpolation=InterpolationMode.BICUBIC),
-        T.ToTensor(),
-        T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-    ])
-    
-    image = Image.open(path).convert("RGB")
-    pixel_values = transform(image).unsqueeze(0).to(device).to(dtype=next(model.parameters()).dtype)
-    
     question = req.get("question", "请详细描述这张图片。")
     max_tokens = req.get("max_new_tokens", 512)
     
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "image": path,
+                },
+                {"type": "text", "text": question},
+            ],
+        }
+    ]
+    
+    text = processor.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
+    
+    image_inputs, video_inputs = process_vision_info(messages)
+    
+    inputs = processor(
+        text=[text],
+        images=image_inputs,
+        videos=video_inputs,
+        padding=True,
+        return_tensors="pt",
+    )
+    inputs = inputs.to("cuda")
+    
     with torch.no_grad():
-        res = model.chat(tokenizer, pixel_values, f"<image>\n{question}", {
-            "max_new_tokens": max_tokens, 
-            "do_sample": False
-        })
-    return {"status": "ok", "result": res.strip()}
+        generated_ids = model.generate(**inputs, max_new_tokens=max_tokens)
+        generated_ids_trimmed = [
+            out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+        ]
+        res = processor.batch_decode(
+            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )
+        
+    return {"status": "ok", "result": res[0].strip() if res else ""}
 
 if __name__ == "__main__":
     import argparse
@@ -78,7 +103,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        model, tokenizer = load_model(args.model_path)
+        model, processor = load_model(args.model_path)
         print("READY", flush=True)
     except Exception:
         print(json.dumps({"status": "error", "message": traceback.format_exc()}), flush=True)
@@ -88,8 +113,7 @@ if __name__ == "__main__":
         if not (line := line.strip()): continue
         try:
             req = json.loads(line)
-            response = query(model, tokenizer, req)
+            response = query(model, processor, req)
         except Exception:
             response = {"status": "error", "message": traceback.format_exc()}
         print(json.dumps(response, ensure_ascii=False), flush=True)
-

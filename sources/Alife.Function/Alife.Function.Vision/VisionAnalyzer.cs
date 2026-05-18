@@ -20,9 +20,9 @@ public class VisionAnalyzer : IDisposable
     public VisionAnalyzer()
     {
         AlifePlatform.Command("python", "-m pip install torch==2.5.1+cu121 torchvision==0.20.1+cu121 --find-links https://mirrors.aliyun.com/pytorch-wheels/cu121/");
-        AlifePlatform.Command("python", "-m pip install Pillow transformers<4.58.0 timm einops sentencepiece tiktoken -i https://mirrors.aliyun.com/pypi/simple/");
+        AlifePlatform.Command("python", "-m pip install Pillow transformers>=4.48.0 qwen-vl-utils bitsandbytes accelerate sentencepiece tiktoken -i https://mirrors.aliyun.com/pypi/simple/");
 
-        const string ModelId = "OpenGVLab/InternVL2_5-1B";
+        const string ModelId = "Qwen/Qwen2.5-VL-3B-Instruct";
         string modelPath = AlifeModel.EnsureModelExisting(ModelId);
         string script = Path.Combine(AppContext.BaseDirectory, "vision_bridge.py");
         string arguments = $"\"{script}\" --model_path \"{modelPath}\"";
