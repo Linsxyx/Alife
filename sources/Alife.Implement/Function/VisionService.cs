@@ -30,12 +30,13 @@ public partial class VisionService(FunctionService functionService) : Interactiv
     [Description("查看当前屏幕内容。（使用后需等待结果返回）")]
     public async Task LookScreen(string query)
     {
+        CancellationTokenSource cancellationTokenSource = new(10000);
         string screenshotPath = AlifePlatform.Screenshot();
         Poke($"""
               【屏幕分析结果】（注意！本结果不能完全作为判断用户行为的依据，因为电脑可能处于挂机状态）
               - 窗口列表：{AlifePlatform.GetRunningWindowTitles()}
               - 焦点窗口：{WindowsPlatform.GetActiveWindowTitle()}
-              - 深度视觉：{await analyzer!.QueryAsync(screenshotPath, query)}（注意！深度视觉误识别率非常高）
+              - 深度视觉：{await analyzer!.QueryAsync(screenshotPath, query, cancellationToken: cancellationTokenSource.Token)}（注意！深度视觉误识别率非常高）
               """);
     }
 
@@ -57,7 +58,8 @@ public partial class VisionService(FunctionService functionService) : Interactiv
                 path = downloaded;
             }
 
-            string result = await analyzer!.QueryAsync(path, query);
+            CancellationTokenSource cancellationTokenSource = new(10000);
+            string result = await analyzer!.QueryAsync(path, query, cancellationToken: cancellationTokenSource.Token);
             Poke($"""
                   【图片分析结果】
                   - 文字识别：{await AlifePlatform.OcrAsync(path)}

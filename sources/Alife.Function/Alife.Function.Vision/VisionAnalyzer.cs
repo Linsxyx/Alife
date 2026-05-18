@@ -12,14 +12,12 @@ namespace Alife.Function.Vision;
 /// </summary>
 public class VisionAnalyzer : IDisposable
 {
-    private bool _isFallback = false;
-    private string _fallbackReason = "";
     /// <summary>
     /// 模型生成的最大字长限制（Token 数量）。
     /// </summary>
     public int MaxResponseTokens { get; set; } = 100;
 
-    public VisionAnalyzer(int timeoutSeconds = 120, Action<string>? onLog = null)
+    public VisionAnalyzer()
     {
         AlifePlatform.Command("python", "-m pip install torch==2.5.1+cu121 torchvision==0.20.1+cu121 --find-links https://mirrors.aliyun.com/pytorch-wheels/cu121/");
         AlifePlatform.Command("python", "-m pip install Pillow transformers<4.58.0 timm einops sentencepiece tiktoken -i https://mirrors.aliyun.com/pypi/simple/");
@@ -51,61 +49,59 @@ public class VisionAnalyzer : IDisposable
             process = Process.Start(psi)
                       ?? throw new InvalidOperationException("Failed to start Python vision bridge.");
 
+            //监听管道异常信息
+            _ = Task.Run(async () => {
+                try
+                {
+                    StreamReader stderr = process.StandardError;
+                    while (process.HasExited == false)
+                    {
+                        Console.WriteLine(await stderr.ReadLineAsync());
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
+            });
+
             stdin = process.StandardInput;
             stdout = process.StandardOutput;
 
-            // ... 同步 READY 信号 (此处省略，实际执行时会合并)
-        }
-        catch (Exception ex)
-        {
-            _isFallback = true;
-            _fallbackReason = ex.Message;
-            onLog?.Invoke($"[Vision] Entering Fallback Mode: {ex.Message}");
-        }
 
-        if (onLog != null)
-        {
-            _ = Task.Run(async () => {
-                StreamReader stderr = process.StandardError;
-                char[] buffer = new char[256];
-                try
-                {
-                    int read;
-                    while ((read = await stderr.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                    {
-                        onLog(new string(buffer, 0, read));
-                    }
-                }
-                catch
-                {
-                    // ignored
-                }
-            });
-        }
+            // 等待 "READY" 信号
 
-        // 等待 "READY" 信号
-        using CancellationTokenSource cts = new(TimeSpan.FromSeconds(timeoutSeconds));
-        try
-        {
-            while (!cts.Token.IsCancellationRequested)
+            while (true)
             {
-                string? line = stdout.ReadLine();
+                string? line = Task.Run(async () => {
+                    using CancellationTokenSource cts = new(TimeSpan.FromSeconds(120));
+                    return await stdout.ReadLineAsync(cts.Token);
+                }).Result;
                 if (line == null)
-                    throw new InvalidOperationException("Python bridge process exited unexpectedly during startup.");
-                if (line == "READY") return;
+                    throw new InvalidOperationException("无法获取到管道输入");
                 if (line.StartsWith("{"))// 可能是错误信息
                 {
                     JsonNode? err = JsonNode.Parse(line);
                     throw new InvalidOperationException($"Vision bridge startup error: {err?["message"]}");
                 }
+                if (line == "READY")
+                    return;
+                Console.WriteLine(line);
             }
         }
-        catch (OperationCanceledException)
+        catch (Exception ex)
         {
-            throw new TimeoutException($"Vision bridge did not become ready within {timeoutSeconds}s.");
+            isFallback = true;
+            Console.WriteLine($"深度视觉初始化失败：\n{ex}");
         }
     }
-
+    public void Dispose()
+    {
+        process?.Kill();
+        process?.Dispose();
+        syncLock.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     /// <summary>
     /// 视觉问答：用中文提问，获得中文回答。
@@ -114,9 +110,9 @@ public class VisionAnalyzer : IDisposable
         CancellationToken cancellationToken = default)
     {
         // 2. AI 深度视觉分析 (CUDA 增强)
-        if (_isFallback)
+        if (isFallback)
         {
-            return "CUDA 运行时未就绪，无法进行神经网络深度分析。";
+            return "深度视觉初始化失败，无法使用神经网络分析。";
         }
 
         try
@@ -168,16 +164,9 @@ public class VisionAnalyzer : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        process?.Kill();
-        process?.Dispose();
-        syncLock.Dispose();
-        GC.SuppressFinalize(this);
-    }
-
     readonly Process? process;
     readonly StreamWriter? stdin;
     readonly StreamReader? stdout;
     readonly SemaphoreSlim syncLock = new(1, 1);
+    readonly bool isFallback;//深度模型初始化失败
 }
