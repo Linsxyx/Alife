@@ -5,7 +5,59 @@
 <div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
     <Flex Direction="FlexDirection.Vertical" Gap="@("24")">
 
-        @(DefaultUI)
+        <Form TModel="SpeechConfig" Model="@Configuration" Layout="@FormLayout.Vertical">
+            <FormItem Label="语音合成引擎">
+                <RadioGroup @bind-Value="@Configuration.SynthesizerType" TValue="SpeechSynthesizerType">
+                    <Radio Value="@SpeechSynthesizerType.Edge">Edge-TTS (在线)</Radio>
+                    <Radio Value="@SpeechSynthesizerType.Vits">VITS (本地离线)</Radio>
+                </RadioGroup>
+                <div style="margin-top: 8px;">
+                    <Alert Type="AlertType.Warning" ShowIcon="true"
+                           Message="注意：合成引擎类型仅在角色激活时创建一次，运行中修改此项需重启角色生效。"/>
+                </div>
+            </FormItem>
+
+            @if (Configuration.SynthesizerType == SpeechSynthesizerType.Edge)
+            {
+                <FormItem Label="Edge 语音音色">
+                    <Input @bind-Value="@Configuration.EdgeVoiceTone"/>
+                    <Text Type="TextElementType.Secondary" Style="font-size: 11px;">在线 Edge-TTS 的发音角色音色，例如
+                        zh-CN-XiaoyiNeural。
+                    </Text>
+                </FormItem>
+            }
+            else
+            {
+                <FormItem Label="VITS 说话人 ID">
+                    <AntDesign.InputNumber @bind-Value="@Configuration.VitsSpeakerId" Min="0" Max="803"
+                                           Style="width: 100%;"/>
+                    <Text Type="TextElementType.Secondary" Style="font-size: 11px;">本地 VITS 模型的说话人 ID（0 到
+                        803）。默认为 284（希儿）。
+                    </Text>
+                </FormItem>
+                <FormItem Label="VITS 语速 (Length Scale)">
+                    <AntDesign.InputNumber @bind-Value="@Configuration.VitsLengthScale" Min="0.1f" Max="5.0f"
+                                           Step="0.1f" Style="width: 100%;"/>
+                    <Text Type="TextElementType.Secondary" Style="font-size: 11px;">控制整体语速（推荐 1.0 ~
+                        1.5）。值越大说话越慢。
+                    </Text>
+                </FormItem>
+                <FormItem Label="VITS 感情变化程度 (Noise Scale)">
+                    <AntDesign.InputNumber @bind-Value="@Configuration.VitsNoiseScale" Min="0.01f" Max="2.0f"
+                                           Step="0.05f" Style="width: 100%;"/>
+                    <Text Type="TextElementType.Secondary" Style="font-size: 11px;">控制发音的感情起伏变化程度（推荐 0.3
+                        ~ 0.8）。
+                    </Text>
+                </FormItem>
+                <FormItem Label="VITS 音素发音长度 (Noise Scale W)">
+                    <AntDesign.InputNumber @bind-Value="@Configuration.VitsNoiseScaleW" Min="0.01f" Max="2.0f"
+                                           Step="0.05f" Style="width: 100%;"/>
+                    <Text Type="TextElementType.Secondary" Style="font-size: 11px;">控制单个音素的长度起伏（推荐 0.4 ~
+                        0.8）。
+                    </Text>
+                </FormItem>
+            }
+        </Form>
 
         <GridRow Gutter="16">
             <GridCol Span="12">
@@ -46,9 +98,6 @@
             }
 
         </GridRow>
-
-        <Alert Type="AlertType.Info" ShowIcon="true"
-               Message="说明：非耳机状态，识别功能将根据语音合成情况自动开关；耳机状态时，将会常驻开启语音识别。"/>
 
         @if (Plugin != null)
         {

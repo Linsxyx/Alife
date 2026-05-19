@@ -44,9 +44,14 @@
     - 业务逻辑不再直接耦合 Windows API。
 - **依赖优化**: 清理了 `Alife.Implement` 中冗余的 `System.Drawing.Common` 引用，统一由 `Basic` 层处理。
 - **本地记忆检索极简重构**:
-    - 彻底干掉了 DuckDB FTS 全文检索，解决了原作者为使新记忆可搜而盲目在每次检索前执行 `PRAGMA drop_fts_index` 和 `PRAGMA create_fts_index` 的极重磁盘 I/O 开销。
+    - 彻底干掉了 DuckDB FTS 全文检索，解决了原作者为使新记忆可搜而盲目在每次检索前执行 `PRAGMA drop_fts_index` 的极重磁盘 I/O 开销。
     - 将检索 SQL 改造为极其高效的 `ILIKE` 判断（精准命中加 1 分），结合大模型余弦相似度做同梯队内细粒度排序，中文匹配度达 100%。
     - 实现 C# 与 DuckDB 端到端的 `float` 类型对齐，改用 `reader.GetFloat(6)` 零冗余原生存取，大幅简化了代码并降低了系统耦合。
+- **TTS 语音合成双引擎支持 (Edge-TTS + 本地离线 VITS)**:
+  - 实现了 `VitsSpeechSynthesizer`，通过底层 `sherpa-onnx` 的 `OfflineTts` 加载本地 `G_953000.onnx` 模型进行纯离线语音合成推理。
+  - 重构了 `SpeechSynthesizerBase` 抽象基类，将 NAudio 音频播放、`SilenceTrimmer` 静音裁剪、异步任务排队、打断与临时文件生命周期管理完全收拢在基类，实现最大化复用。
+  - 改造了 `SpeechService`，引入了双引擎配置，采用“Awake 时单次创建，配置更改时仅修改属性”的设计，避免在运行时反复重建引擎（从而节约了加载 ONNX 模型的开销）。
+  - 成功使用 Python 向导出的 `G_953000.onnx` 模型注入了 `sample_rate="22050"`、`model_type="vits"`、`n_speakers="804"` 等核心元数据，消除了 `sherpa-onnx` 初始化时的元数据缺失报错。
 
 ## 3. 未来计划 (Future Plans)
 
@@ -76,6 +81,10 @@
     - 新增「办公管家」：支持待办事项 (TODO) 管理、会议纪要整理等办公辅助。
     - 新增「赛博算命」：集成周易起卦 (I Ching) 逻辑，提供玄学情感慰藉。
     - 成功验证：AI 能够自发地组合使用这些 Skill，表现出极高的交互趣味性和实用价值。
+- [2026-05-19] TTS 双引擎重构与本地离线 VITS 适配:
+  - 成功将本地 VITS (.pth) 导出并转换为带 `sherpa-onnx` 元数据的 `.onnx` 模型。
+  - 重构 `SpeechSynthesizerBase` 基类，收拢音频队列控制与播放逻辑。
+  - 完成 `SpeechService` 配置化改造，采用“Awake 时决定合成引擎类型，属性更改仅同步更新参数”的设计，避免热切换时频繁重载大型模型。
 
 ## 5. 经验教训与技巧 (Lessons Learned & Tips)
 

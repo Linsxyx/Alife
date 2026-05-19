@@ -12,8 +12,7 @@ namespace Alife.Function.Speech;
 public class SpeechRecognizer : IDisposable
 {
     public event Action<string>? Recognized;
-    public bool IsRecognizing { get; private set; }
-    public bool IsInitialized { get; private set; }
+    public bool IsRunning { get; private set; }
 
     public SpeechRecognizer()
     {
@@ -42,36 +41,18 @@ public class SpeechRecognizer : IDisposable
     }
     public void Dispose()
     {
+        Stop();
         recognizer.Dispose();
         vad.Dispose();
-        IsRecognizing = false;
-
-        if (graph != null)
-        {
-            graph.QuantumStarted -= OnQuantumStarted;
-            outputNode?.Dispose();
-            inputNode?.Dispose();
-            graph.Dispose();
-        }
-
         GC.SuppressFinalize(this);
     }
 
-    public async Task TryInitializeAudioAsync()
+    public async Task TryStartAsync()
     {
+        if (IsRunning)
+            return;
         if (SpeechEnvironment.HasMicrophone() == false)
             return;
-        if (IsInitialized)
-            return;
-        if (graph != null)//未初始化但有graph，说明是失效的
-        {
-            outputNode?.Dispose();
-            outputNode = null;
-            inputNode?.Dispose();
-            inputNode = null;
-            graph.Dispose();
-            graph = null;
-        }
 
         //创建语音专用 AudioGraph（支持回声消除）
         if (graph == null)
@@ -89,8 +70,7 @@ public class SpeechRecognizer : IDisposable
             graph.QuantumStarted += OnQuantumStarted;
             //异常回调（重置状态）
             graph.UnrecoverableErrorOccurred += (sender, args) => {
-                IsInitialized = false;
-                IsRecognizing = false;
+                Stop();
             };
         }
 
@@ -107,27 +87,21 @@ public class SpeechRecognizer : IDisposable
             inputNode.AddOutgoingConnection(outputNode);
         }
 
-        IsInitialized = true;
-    }
-    public void Start()
-    {
-        if (IsRecognizing)
-            throw new InvalidOperationException("已在运行中，Stop 后才能再次 Start。");
-        if (IsInitialized == false)
-            throw new Exception("音频录制系统未初始化！");
-
         graph?.Start();
         lock (vad)
-            vad.Clear();
-        IsRecognizing = true;
+            vad.Reset();
+
+        IsRunning = true;
     }
     public void Stop()
     {
-        if (IsRecognizing == false)
-            throw new InvalidOperationException("未在运行中，Start 后才可调用 Stop。");
-
-        graph?.Stop();
-        IsRecognizing = false;
+        outputNode?.Dispose();
+        outputNode = null;
+        inputNode?.Dispose();
+        inputNode = null;
+        graph?.Dispose();
+        graph = null;
+        IsRunning = false;
     }
 
     readonly OfflineRecognizer recognizer;
@@ -191,19 +165,9 @@ public class SpeechRecognizer : IDisposable
     {
         lock (vad)
         {
-            if (IsRecognizing == false)
-                return;//非识别期间不进行vad检测
-
             vad.AcceptWaveform(samples);
             while (vad.IsEmpty() == false)
             {
-                //检测到可识别的声音
-                if (IsRecognizing == false)
-                {
-                    vad.Reset();
-                    return;//非识别期间取消识别
-                }
-
                 SpeechSegment segment = vad.Front();
                 if (segment.Samples is { Length: > 0 })
                     ProcessSegment(segment.Samples);
