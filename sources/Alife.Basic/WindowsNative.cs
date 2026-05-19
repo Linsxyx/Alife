@@ -22,6 +22,7 @@ internal static class WindowsNative
     public const int WmMousemove = 0x0200;
     
     public const int JobObjectLimitKillOnJobClose = 0x2000;
+    public const int DesktopSwitchdesktop = 0x0100;
     #endregion
 
     #region Delegates
@@ -121,5 +122,11 @@ internal static class WindowsNative
 
     [DllImport("kernel32.dll")]
     public static extern bool AssignProcessToJobObject(IntPtr hJob, IntPtr hProcess);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr OpenInputDesktop(uint dwFlags, bool fInherit, uint dwDesiredAccess);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool CloseDesktop(IntPtr hDesktop);
     #endregion
 }

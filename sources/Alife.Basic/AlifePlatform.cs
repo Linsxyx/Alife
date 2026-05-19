@@ -17,6 +17,20 @@ public static class AlifePlatform
         throw new PlatformNotSupportedException("当前平台不支持获取分辨率。");
     }
 
+    /// <summary>
+    /// 判断当前系统是否处于锁屏/息屏状态。
+    /// </summary>
+    public static bool IsLocked
+    {
+        get
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return WindowsPlatform.IsLocked();
+
+            return false;
+        }
+    }
+
     public static void Notice(string title, string message)
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

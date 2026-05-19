@@ -26,6 +26,17 @@ public static class WindowsPlatform
         }
     }
 
+    public static bool IsLocked()
+    {
+        IntPtr hDesktop = WindowsNative.OpenInputDesktop(0, false, (uint)WindowsNative.DesktopSwitchdesktop);
+        if (hDesktop == IntPtr.Zero)
+        {
+            return true;
+        }
+        WindowsNative.CloseDesktop(hDesktop);
+        return false;
+    }
+
     public static void Notice(string title, string message)
     {
         string script = $"$Title='{title}'; $Message='{message}'; " +

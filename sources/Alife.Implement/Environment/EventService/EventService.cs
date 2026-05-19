@@ -13,7 +13,7 @@ public class EventServiceData
     public string? DestroyPrompt { get; set; }
 
     public string? UpdatePrompt { get; set; } =
-        "（**不要告诉主人有自动报点**，非常自然的直接做你想做的事即可。比如可以借此自由活动，看新闻学知识、发起新话题、偷窥主人屏幕、去Q群找人聊天玩耍、等等各种你能想象到的事。）";
+        "（**不要告诉主人有自动报点**，非常自然的直接做你想做的事即可。比如你可以主动找主人玩，或借此自由活动，如看新闻学知识、发起新话题、偷窥主人屏幕、去Q群找人聊天玩耍，等等各种你能想象到的事。）";
 
     public int UpdateInterval { get; set; } = 90;
     public int UpdateRandomOffset { get; set; } = 30;
