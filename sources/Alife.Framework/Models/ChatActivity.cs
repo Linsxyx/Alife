@@ -87,7 +87,7 @@ public partial class ChatActivity
             for (int index = 0; index < allPlugins.Length; index++)
             {
                 Plugin pluginInstance = allPlugins[index];
-                progress?.Report(($"激活服务 {pluginInstance.GetType().Name}", (float)index / allPlugins.Length));
+                progress?.Report(($"初始化服务 {pluginInstance.GetType().Name}", (float)index / allPlugins.Length));
 
                 await pluginInstance.AwakeAsync(awakeContext);
             }

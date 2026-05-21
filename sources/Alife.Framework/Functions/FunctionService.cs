@@ -88,7 +88,7 @@ public class FunctionService : InteractivePlugin<FunctionService>
     {
         try
         {
-            await ChatBot.RequestChatAsync(ChatBot.ChatBreakToken);
+            await ChatBot.RequestChatAsync();
             try
             {
                 executor.Flush();
