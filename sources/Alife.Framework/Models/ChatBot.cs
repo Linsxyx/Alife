@@ -246,7 +246,7 @@ public class ChatBot : IAsyncDisposable
                 currentTime += DeltaTime;
                 if (currentTime - lastAutoFlushTime > 2)
                 {
-                    TryFlushMessageCache();
+                    await TryFlushMessageCache(cancelTimerSource.Token);
                     lastAutoFlushTime = currentTime;
                 }
             }
@@ -258,12 +258,13 @@ public class ChatBot : IAsyncDisposable
         }
     }
 
-    void TryFlushMessageCache()
+    async Task TryFlushMessageCache(CancellationToken cancellationToken = default)
     {
-        if (IsChatting)
+        if (messageCache.Count == 0)
             return;
 
-        if (messageCache.Count != 0)
+        await RequestChatAsync(cancellationToken);
+        try
         {
             //组合消息
             StringBuilder stringBuilder = new();
@@ -283,6 +284,10 @@ public class ChatBot : IAsyncDisposable
 
             //发送消息
             Chat($"{PokeMessageTag}\n{poke}");
+        }
+        finally
+        {
+            ReleaseChat();
         }
     }
 

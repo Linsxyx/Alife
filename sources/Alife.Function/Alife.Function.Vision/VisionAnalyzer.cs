@@ -142,10 +142,10 @@ public class VisionAnalyzer : IDisposable
             }
 
             string json = requestNode?.ToJsonString() ?? requestJson;
-            await stdin!.WriteLineAsync(json.AsMemory(), ct);
-            await stdin.FlushAsync(ct);
+            //不要取消写入读取，尤其是写入后必须读取，否则会导致上传消息的残留
+            stdin!.WriteLine(json.AsMemory());
+            string? response = stdout!.ReadLine();
 
-            string? response = await stdout!.ReadLineAsync(ct);
             if (response == null)
                 throw new InvalidOperationException("Python bridge closed unexpectedly.");
 
