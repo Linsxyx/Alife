@@ -11,7 +11,7 @@ using Microsoft.SemanticKernel.Connectors.OpenAI;
 namespace Alife.Framework;
 
 [Plugin(
-"OpenAI大语言模型", "接入基于OpenAI协议的对话模型，实现最基本的文本对话功能。",
+"OpenAI大语言模型", "接入基于OpenAI协议的文本模型，实现最基本的文本对话功能。",
 url: "https://www.deepseek.com/",
 editorUI: typeof(OpenAILanguageModelUI),
 defaultCategory: "Alife 官方/模型接入/文本模型"

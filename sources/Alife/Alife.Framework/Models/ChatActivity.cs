@@ -111,7 +111,8 @@ public partial class ChatActivity
             ChatBot chatBot;
             Kernel kernelService;
             {
-                ILanguageModel languageModel = pluginContainer.Resolve<ILanguageModel>();
+                if (pluginContainer.TryResolve(out ILanguageModel? languageModel) == false)
+                    throw new Exception($"必须确保启用了一个文本模型插件！（系统依赖 {nameof(ILanguageModel)}）");
                 languageModel.RegisterChatCompletion(kernelBuilder);
                 kernelService = kernelBuilder.Build();
                 ChatCompletionAgent chatCompletionAgent = new() {

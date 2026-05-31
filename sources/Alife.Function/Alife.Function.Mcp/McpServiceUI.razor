@@ -12,6 +12,9 @@
         <PropertyColumn Property="c=>c.Name" Title="名称"></PropertyColumn>
         <PropertyColumn Property="c=>c.Command" Title="命令"></PropertyColumn>
         <PropertyColumn Property="c=>c.Description" Title="描述"></PropertyColumn>
+        <PropertyColumn Property="c=>c.Enabled" Title="启用">
+            <Switch @bind-Value="context.Enabled" />
+        </PropertyColumn>
         <ActionColumn Title="操作">
             <Space>
                 <SpaceItem>

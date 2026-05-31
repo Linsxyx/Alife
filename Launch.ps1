@@ -130,7 +130,7 @@ if ($torchCheck -eq "ok") {
     & $pyExe -m pip uninstall torch torchvision -y 2>$null | Out-Null
     & $pyExe -m pip install torch==2.10.0+cu128 torchvision==0.25.0+cu128 `
         --find-links https://mirrors.aliyun.com/pytorch-wheels/cu128/ `
-        --no-index
+        --extra-index-url https://mirrors.aliyun.com/pypi/simple/
     Write-Host "[Alife] PyTorch CUDA 12.8 ready." -ForegroundColor Green
 }
 Write-Host ""

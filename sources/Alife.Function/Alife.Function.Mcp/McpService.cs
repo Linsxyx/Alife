@@ -10,6 +10,7 @@ namespace Alife.Function.Mcp;
 
 public class McpServerConfig
 {
+    public bool Enabled { get; set; } = true;
     public string Name { get; set; } = "Unnamed MCP Server";
     public string Description { get; set; } = "";
     public string Command { get; set; } = "";
@@ -38,6 +39,8 @@ public class McpService(XmlFunctionCaller functionService, ILoggerFactory logger
 
         foreach (McpServerConfig server in Configuration!.Servers)
         {
+            if (server.Enabled == false) continue;
+
             (McpClient client, XmlHandler handler) = await McpXmlAdapter.CreateAsync(
             server,
             (name, result) => Poke($"{server.Name}.{name} 执行完成\n{result}"),

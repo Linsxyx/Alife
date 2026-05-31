@@ -89,6 +89,13 @@ public static class McpXmlAdapter
 
     static object? ConvertValue(string value, string jsonType)
     {
+        // 数组类型（integer[]、string[] 等）
+        if (jsonType.EndsWith("[]"))
+        {
+            try { return JsonSerializer.Deserialize<object>(value); }
+            catch { return value; }
+        }
+
         switch (jsonType)
         {
             case "number":
@@ -99,14 +106,8 @@ public static class McpXmlAdapter
                 return bool.TryParse(value, out bool b) ? b : value;
             case "object":
             case "array":
-                try
-                {
-                    return JsonSerializer.Deserialize<object>(value);
-                }
-                catch
-                {
-                    return value;
-                }
+                try { return JsonSerializer.Deserialize<object>(value); }
+                catch { return value; }
             default:
                 return value;
         }
@@ -137,19 +138,16 @@ public static class McpXmlAdapter
         foreach (JsonProperty prop in properties.EnumerateObject())
         {
             string paramName = prop.Name.ToLower();
-            string jsonType = "string";
+            string jsonType = ResolveType(prop.Value);
             string? paramDescription = null;
 
-            if (prop.Value.TryGetProperty("enum", out JsonElement enumElement))
-                jsonType = "enum" + enumElement;
-            else if (prop.Value.TryGetProperty("type", out JsonElement typeElem))
-                jsonType = typeElem.GetString() ?? "string";
             if (prop.Value.TryGetProperty("description", out JsonElement descElem))
                 paramDescription = descElem.GetString();
 
             bool isRequired = requiredSet.Contains(prop.Name);
+            bool isNullable = IsNullableType(prop.Value);
             string paramTypeLabel = jsonType;
-            if (isRequired == false)
+            if (isRequired == false || isNullable)
                 paramTypeLabel += "[可选]";
 
             parameters.Add(new XmlParameter {
@@ -162,5 +160,68 @@ public static class McpXmlAdapter
         }
 
         return (parameters, typeMap);
+    }
+
+    static string ResolveType(JsonElement schema)
+    {
+        // 1. 直接 enum
+        if (schema.TryGetProperty("enum", out JsonElement enumElement))
+            return "enum" + enumElement;
+
+        // 2. 直接 type（含 array 处理 items）
+        if (schema.TryGetProperty("type", out JsonElement typeElem))
+        {
+            string type = typeElem.GetString() ?? "string";
+            if (type == "array" && schema.TryGetProperty("items", out JsonElement items))
+            {
+                string itemType = ResolveType(items);
+                return itemType + "[]";
+            }
+            return type;
+        }
+
+        // 3. anyOf 联合类型 — 过滤 null，取第一个非 null 类型
+        if (schema.TryGetProperty("anyOf", out JsonElement anyOf) && anyOf.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement branch in anyOf.EnumerateArray())
+            {
+                if (branch.TryGetProperty("type", out JsonElement branchType) && branchType.GetString() != "null")
+                    return ResolveType(branch);
+            }
+        }
+
+        // 4. oneOf 联合类型 — 同理
+        if (schema.TryGetProperty("oneOf", out JsonElement oneOf) && oneOf.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement branch in oneOf.EnumerateArray())
+            {
+                if (branch.TryGetProperty("type", out JsonElement branchType) && branchType.GetString() != "null")
+                    return ResolveType(branch);
+            }
+        }
+
+        return "string";
+    }
+
+    static bool IsNullableType(JsonElement schema)
+    {
+        // anyOf/oneOf 中包含 null 类型
+        if (schema.TryGetProperty("anyOf", out JsonElement anyOf) && anyOf.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement branch in anyOf.EnumerateArray())
+            {
+                if (branch.TryGetProperty("type", out JsonElement t) && t.GetString() == "null")
+                    return true;
+            }
+        }
+        if (schema.TryGetProperty("oneOf", out JsonElement oneOf) && oneOf.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement branch in oneOf.EnumerateArray())
+            {
+                if (branch.TryGetProperty("type", out JsonElement t) && t.GetString() == "null")
+                    return true;
+            }
+        }
+        return false;
     }
 }
