@@ -25,7 +25,7 @@ public class OpenAILanguageModel(ILogger<OpenAILanguageModel> logger) :
     public void RegisterChatCompletion(IKernelBuilder kernelBuilder)
     {
         if (string.IsNullOrWhiteSpace(Configuration!.apiKey))
-            throw new Exception("文本模型的key为空，请检查你的“OpenAI大语言模型”插件配置是否正确。");
+            throw new Exception("文本模型的key为空，请检查你的“OpenAI语言模型”插件配置是否正确。");
 
         // 强制使用 HTTP 1.1 以解决某些提供者（如 DeepSeek）在流式传输时可能出现的 HttpIOException
         SocketsHttpHandler handler = new() {

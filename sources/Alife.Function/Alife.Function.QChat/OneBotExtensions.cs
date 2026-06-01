@@ -26,11 +26,11 @@ public static class OneBotExtensions
     }
 
     /// <summary>
-    /// 下载文件（用于私聊）
+    /// 获取私聊文件下载链接。
     /// </summary>
-    public static async Task<OneBotFile?> GetPrivateFile(this OneBotClient client, string fileId)
+    public static async Task<OneBotFile?> GetPrivateFileUrl(this OneBotClient client, string fileId)
     {
-        return await client.CallActionAsync<OneBotFile>("get_file", new { file = fileId });
+        return await client.CallActionAsync<OneBotFile>("get_private_file_url", new { file_id = fileId });
     }
     /// <summary>
     /// 获取群文件下载链接。

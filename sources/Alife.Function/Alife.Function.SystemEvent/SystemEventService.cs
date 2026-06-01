@@ -30,7 +30,7 @@ public class SystemEventService(XmlFunctionCaller functionService)
 {
     [XmlFunction(FunctionMode.OneShot)]
     [Description("让自己在等待或休息一段时间后继续行动。")]
-    public void Wait([Description("单位秒")] int delay)
+    public void EWait([Description("单位秒")] int delay)
     {
         continuousTimerCount = 0;
         NextTimer();
@@ -39,7 +39,7 @@ public class SystemEventService(XmlFunctionCaller functionService)
 
     [XmlFunction(FunctionMode.OneShot)]
     [Description("设置一个定时报点，以便让自己有一段可以自由活动的时间（设置时自动取消上一个）")]
-    public void Wake([Description("格式为ISO-8601")] DateTime time, [Description("备注信息")] string remark = "")
+    public void EWake([Description("格式为ISO-8601")] DateTime time, [Description("备注信息")] string remark = "")
     {
         reminderName = remark;
         timeTask[1] = (time, () => {
@@ -80,7 +80,7 @@ public class SystemEventService(XmlFunctionCaller functionService)
 
                 ## 如何利用要报点事件？
                 "主动性的表现，会让自己看着更自然更有趣更讨人喜欢。而且使得你有机会主动做一些自己的事情。"因此善用报点事件，能让你变的非常强大。
-                而除了预设的系统事件外，你可以使用 {nameof(Wait)} 和 {nameof(Wake)} 给自己额外添加一些自由活动的机会。这使得你能借此安排日程或以此反向找人说话或找点乐子。
+                而除了预设的系统事件外，你可以使用 {nameof(EWait)} 和 {nameof(EWake)} 给自己额外添加一些自由活动的机会。这使得你能借此安排日程或以此反向找人说话或找点乐子。
                 例如偷偷记下主人的日常起居时间，来个早晚问候，或白天主动找用户聊天，这些都会让用户感到非常惊喜。
                 """);
     }

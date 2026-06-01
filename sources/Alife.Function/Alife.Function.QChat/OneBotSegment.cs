@@ -166,8 +166,8 @@ public static class OneBotSegment
 
             OneBotFile? fileInfo = groupId != 0
                 ? await client.GetGroupFileUrl(groupId, fileId)
-                : await client.GetPrivateFile(fileId);
-
+                : await client.GetPrivateFileUrl(fileId);
+            
             string info = fileInfo != null
                 ? $"[文件: {fileName}, 大小: {fileInfo.Size}b, 下载地址: {fileInfo.Url}]"
                 : $"[文件: {fileName}]";

@@ -196,7 +196,7 @@ public class QChatService(XmlFunctionCaller functionService, ILogger<QChatServic
     }
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("获取转发消息详情。（使用后需等待结果返回）")]
+    [Description("查看转发消息内容。（使用后需等待结果返回）")]
     public async Task QForward([Description("转发消息 ID")] string id)
     {
         List<OneBotForwardMessage>? messages = await oneBotClient!.GetForwardMessage(id);
@@ -237,7 +237,7 @@ public class QChatService(XmlFunctionCaller functionService, ILogger<QChatServic
 
     QChatConfig? configuration;
     OneBotClient? oneBotClient;
-    protected override string ChatPrefixPrompt => $"[回复请用qchat及相关标签]{Configuration?.AppendChatPrompt}";
+    protected override string ChatPrefixPrompt => $"[请用QChat相关功能回复]{Configuration?.AppendChatPrompt}";
     string[] groupAwakingWords = [];
     string[] ignoredGroup = [];
     readonly Dictionary<long, GroupState> groupStates = new();
