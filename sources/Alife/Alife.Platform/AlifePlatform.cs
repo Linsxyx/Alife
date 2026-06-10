@@ -1,4 +1,5 @@
 using System.IO;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -10,6 +11,40 @@ namespace Alife.Platform;
 /// </summary>
 public static class AlifePlatform
 {
+    /// <summary>
+    /// 通过 HttpClient 下载文件到本地
+    /// </summary>
+    public static async Task DownloadFileAsync(string url, string savePath)
+    {
+        //伪装用户
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        if (url.Contains("multimedia.nt.qq.com.cn") || url.Contains("qpic.cn"))
+            request.Headers.Add("Referer", "https://q.qq.com/");
+
+        //下载文件
+        using var response = await SharedHttpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        byte[] data = await response.Content.ReadAsByteArrayAsync();
+
+        string? dir = Path.GetDirectoryName(savePath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
+        await File.WriteAllBytesAsync(savePath, data);
+    }
+    public static async Task DownloadZipFileAsync(string rootPath, string url)
+    {
+        if (Directory.Exists(rootPath) == false)
+            Directory.CreateDirectory(rootPath);
+
+        string zipPath = Path.Combine(rootPath, "temp.zip");
+        await DownloadFileAsync(url, zipPath);
+
+        ZipFile.ExtractToDirectory(zipPath, rootPath, overwriteFiles: true);
+        File.Delete(zipPath);
+    }
+
     public static (int Width, int Height) GetResolution()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -83,28 +118,7 @@ public static class AlifePlatform
         return "当前平台不支持 OCR";
     }
 
-    /// <summary>
-    /// 通过 HttpClient 下载文件到本地
-    /// </summary>
-    public static async Task DownloadFileAsync(string url, string savePath)
-    {
-        //伪装用户
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-        if (url.Contains("multimedia.nt.qq.com.cn") || url.Contains("qpic.cn"))
-            request.Headers.Add("Referer", "https://q.qq.com/");
 
-        //下载文件
-        using var response = await SharedHttpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-        byte[] data = await response.Content.ReadAsByteArrayAsync();
-
-        string? dir = Path.GetDirectoryName(savePath);
-        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
-
-        await File.WriteAllBytesAsync(savePath, data);
-    }
 
     static readonly HttpClient SharedHttpClient = new();
     static readonly string[] CommandIgnore;
