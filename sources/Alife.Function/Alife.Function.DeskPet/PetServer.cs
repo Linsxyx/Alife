@@ -20,14 +20,14 @@ public class PetServer : IAsyncDisposable
     public IEnumerable<string> SupportedExpressions => metadata.Expressions;
     public IDictionary<string, (string Group, int Index)> SupportedMotions => metadata.Motions;
 
-    public PetServer(string modelName)
+    public PetServer(string clientPath, string modelName)
     {
         //加载模型信息
-        string modelJsonPath = Path.Combine(AlifePath.OutputsFolderPath, $"Alife.DeskPet.Client/wwwroot/model/{modelName}/{modelName}.model3.json");
+        string modelJsonPath = Path.Combine(clientPath, $"wwwroot/model/{modelName}/{modelName}.model3.json");
         metadata = PetModelMetadata.Load(modelJsonPath);
 
         //创建进程
-        string petExePath = Path.Combine(AlifePath.OutputsFolderPath, "Alife.DeskPet.Client/Alife.DeskPet.Client.exe");
+        string petExePath = Path.Combine(clientPath, "Alife.DeskPet.Client.exe");
         if (File.Exists(petExePath) == false)
             throw new FileNotFoundException($"找不到桌宠程序: {petExePath}");
         nativeProcess = new Process {

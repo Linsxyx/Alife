@@ -58,11 +58,11 @@ $ridArg = if ($Mode -eq "publish") { @("-r", "win-x64") } else { @() }
 
 Write-Host "  $Mode Alife.Client..."
 dotnet $buildCmd (Join-Path $Src "Alife\Alife.Client\Alife.Client.csproj") `
-    -c Release -o (Join-Path $OutputDir "Alife.Client") --self-contained false @ridArg -nologo --verbosity quiet
+    -c Release -o (Join-Path $OutputDir "Alife.Client") --self-contained true @ridArg -nologo --verbosity quiet
 
 Write-Host "  $Mode Alife.DeskPet.Client..."
 dotnet $buildCmd (Join-Path $Src "Alife.DeskPet\Alife.DeskPet.Client\Alife.DeskPet.Client.csproj") `
-    -c Release -o (Join-Path $OutputDir "Alife.DeskPet.Client") --self-contained false @ridArg -nologo --verbosity quiet
+    -c Release -o (Join-Path $OutputDir "Alife.DeskPet.Client") --self-contained true @ridArg -nologo --verbosity quiet
 
 $functionDirs = Get-ChildItem (Join-Path $Src "Alife.Function") -Directory | Where-Object { $_.Name -match '^Alife\.Function\.' }
 foreach ($dir in $functionDirs) {

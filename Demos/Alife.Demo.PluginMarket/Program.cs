@@ -6,7 +6,7 @@ string packageListFile = Path.Combine(pluginInstalledDir, "NUGET_PACKAGES.txt");
 Directory.CreateDirectory(pluginInstalledDir);
 
 // ============ 创建PluginMarket ============
-GithubPluginProvider provider = new("BDFFZI", "Alife.PluginMarket");
+ZipPluginProvider provider = new("https://github.com/BDFFZI/Alife.PluginMarket/archive/refs/heads/main.zip");
 FileSystemPluginManager manager = new(pluginInstalledDir);
 
 Dictionary<string, IEnvironmentInstaller> environmentInstallers = new()
@@ -19,7 +19,7 @@ PluginMarket market = new PluginMarket(provider, manager, manager, environmentIn
 
 // ============ 1. 在线插件列表 ============
 Console.WriteLine("=== 在线插件列表 ===");
-Plugin[] onlinePlugins = provider.GetPlugins();
+Plugin[] onlinePlugins = await provider.GetPluginsAsync();
 Console.WriteLine($"  找到 {onlinePlugins.Length} 个在线插件\n");
 
 // ============ 2. 测试安装 Mcp（依赖FunctionCaller + nuget包） ============
@@ -51,7 +51,8 @@ foreach (var kvp in installedPlugins)
 
 // ============ 4. 查看nuget包目录列表 ============
 Console.WriteLine("\n=== nuget包目录 ===");
-string[] packagePaths = NuGetEnvironmentInstaller.ReadPackageList(packageListFile);
+var nugetInstaller = new NuGetEnvironmentInstaller(packageListFile);
+string[] packagePaths = nugetInstaller.ReadPackageList();
 Console.WriteLine($"  找到 {packagePaths.Length} 个包");
 foreach (string path in packagePaths)
 {

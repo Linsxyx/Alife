@@ -1,4 +1,7 @@
-﻿namespace Alife.PluginMarket;
+﻿using Alife.Platform;
+using Newtonsoft.Json;
+
+namespace Alife.PluginMarket;
 
 public interface IPluginProvider
 {
@@ -172,14 +175,6 @@ public class PluginMarket
         hadPlugins = localPlugins.GetPlugins();
     }
 
-    /// <summary>
-    /// 从云端拉取插件列表
-    /// </summary>
-    public async Task FetchOnlinePluginsAsync()
-    {
-        allPlugins = (await onlinePlugins.GetPluginsAsync()).ToDictionary(plugin => plugin.Id, plugin => plugin);
-    }
-
     public void GetEnvironment(string type, List<KeyValuePair<string, string>> environments)
     {
         environments.Clear();
@@ -200,6 +195,7 @@ public class PluginMarket
     readonly IPluginResolver localPlugins;
     readonly IPluginInstaller pluginInstaller;
     readonly Dictionary<string, IEnvironmentInstaller> environmentInstallers;
+    readonly string cachePath;
     Dictionary<string, Plugin> allPlugins;
     Dictionary<string, string> hadPlugins;
 
@@ -210,13 +206,53 @@ public class PluginMarket
         this.pluginInstaller = pluginInstaller;
         this.environmentInstallers = environmentInstallers;
 
+        cachePath = Path.Combine(AlifePath.RuntimeFolderPath, "plugin_market_cache.json");
         allPlugins = new Dictionary<string, Plugin>();
         hadPlugins = [];
+
+        LoadCache();
+        RefreshLocalPlugins();
     }
 
-    public async Task InitializeAsync()
+    /// <summary>
+    /// 从云端拉取插件列表，并写入缓存
+    /// </summary>
+    public async Task FetchOnlinePluginsAsync()
     {
-        await FetchOnlinePluginsAsync();
-        RefreshLocalPlugins();
+        allPlugins = (await onlinePlugins.GetPluginsAsync()).ToDictionary(plugin => plugin.Id, plugin => plugin);
+        SaveCache();
+    }
+
+    void SaveCache()
+    {
+        try
+        {
+            if (allPlugins.Count == 0) return;
+            string json = JsonConvert.SerializeObject(allPlugins.Values.ToArray(), Formatting.Indented);
+            File.WriteAllText(cachePath, json);
+        }
+        catch
+        {
+            // ignore cache write errors
+        }
+    }
+
+    void LoadCache()
+    {
+        try
+        {
+            if (!File.Exists(cachePath))
+                return;
+            string json = File.ReadAllText(cachePath);
+            var plugins = JsonConvert.DeserializeObject<Plugin[]>(json);
+            if (plugins == null || plugins.Length == 0)
+                return;
+            allPlugins = plugins.ToDictionary(p => p.Id, p => p);
+            return;
+        }
+        catch
+        {
+            return;
+        }
     }
 }

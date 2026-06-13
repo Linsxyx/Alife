@@ -1,8 +1,10 @@
 @using Alife.Components.Services
+@using Alife.Components.Shared.Common
 @using Alife.PluginMarket
 @inject PluginMarketService PluginMarketService
-@inject IMessageService MessageService
 @inject INotificationService NotificationService
+
+<ErrorWindowUI @bind-Value="@operException" />
 
 <div style="display: flex; flex-direction: column; height: 100%;">
     @* 页头 *@
@@ -15,14 +17,12 @@
                     {
                         <Tag Color="@("green")">已安装</Tag>
                     }
-                    @if (hasUpdate)
-                    {
-                        <Badge Count="1" Style="background: #52c41a;" OverflowCount="99">
-                            <span class="new-version-badge">new</span>
-                        </Badge>
-                    }
                 </Flex>
                 <Text Type="@TextElementType.Secondary" Style="margin-top: 4px; display: block;">@Plugin.Id</Text>
+                @if (!string.IsNullOrEmpty(Plugin.Author))
+                {
+                    <span style="margin-top: 2px; display: block; color: rgba(0,0,0,0.45); font-size: 14px;">作者: @Plugin.Author</span>
+                }
             </div>
         </Flex>
 
@@ -34,18 +34,18 @@
         <Flex Gap="@("12")" Style="margin-top: 16px;">
             @if (!isInstalled)
             {
-                <Button Type="@ButtonType.Primary" OnClick="Install" Loading="isOperating">
+                <Button Type="@ButtonType.Primary" OnClick="@(() => Install($"插件 [{Plugin.Name}] 安装成功"))" Loading="isOperating">
                     <Icon Type="@IconType.Outline.CloudDownload" /> 安装
                 </Button>
             }
             else
             {
-                <Button Type="@ButtonType.Primary" OnClick="Reinstall" Loading="isOperating">
+                <Button Type="@ButtonType.Primary" OnClick="@(() => Install($"插件 [{Plugin.Name}] 重装成功"))" Loading="isOperating">
                     <Icon Type="@IconType.Outline.Reload" /> 重装
                 </Button>
                 @if (hasUpdate)
                 {
-                    <Button Type="@ButtonType.Primary" OnClick="Upgrade" Loading="isOperating" Style="background: #52c41a; border-color: #52c41a;">
+                    <Button Type="@ButtonType.Primary" OnClick="@(() => Install($"插件 [{Plugin.Name}] 升级成功"))" Loading="isOperating" Style="background: #52c41a; border-color: #52c41a;">
                         <Icon Type="@IconType.Outline.ArrowUp" /> 升级
                     </Button>
                 }
@@ -77,6 +77,13 @@
                             {
                                 <Tag Color="@("blue")">最新</Tag>
                             }
+                            @if (release.Key != installedVersion)
+                            {
+                                <Button Type="@ButtonType.Link" Size="@ButtonSize.Small" Loading="operatingVersion == release.Key"
+                                         OnClick="@(() => InstallVersion(release.Key))">
+                                    @(PluginMarketService.IsInstalled(Plugin.Id) ? "切换到此版本" : "安装")
+                                </Button>
+                            }
                         </div>
                         <Text Type="@TextElementType.Secondary" Style="font-size: 12px;">@release.Value.Date</Text>
                         @if (!string.IsNullOrEmpty(release.Value.Note))
@@ -99,6 +106,8 @@
     bool isOperating;
     string? installedVersion;
     string? latestVersion;
+    string? operatingVersion;
+    Exception? operException;
 
     protected override void OnParametersSet()
     {
@@ -108,52 +117,19 @@
         hasUpdate = PluginMarketService.HasUpdate(Plugin);
     }
 
-    async Task Install()
+    async Task Install(string message)
     {
         if (latestVersion == null) return;
         isOperating = true;
         try
         {
             await PluginMarketService.InstallPlugin(Plugin, latestVersion);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{Plugin.Name}] 安装成功！" });
+            _ = NotificationService.Success(new NotificationConfig { Message = message });
             OnParametersSet();
         }
         catch (Exception ex)
         {
-            _ = NotificationService.Error(new NotificationConfig { Message = $"安装失败: {ex.Message}" });
-        }
-        isOperating = false;
-    }
-
-    async Task Reinstall()
-    {
-        if (latestVersion == null) return;
-        isOperating = true;
-        try
-        {
-            await PluginMarketService.InstallPlugin(Plugin, latestVersion);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{Plugin.Name}] 重装成功！" });
-        }
-        catch (Exception ex)
-        {
-            _ = NotificationService.Error(new NotificationConfig { Message = $"重装失败: {ex.Message}" });
-        }
-        isOperating = false;
-    }
-
-    async Task Upgrade()
-    {
-        if (latestVersion == null) return;
-        isOperating = true;
-        try
-        {
-            await PluginMarketService.InstallPlugin(Plugin, latestVersion);
-            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{Plugin.Name}] 升级成功！" });
-            OnParametersSet();
-        }
-        catch (Exception ex)
-        {
-            _ = NotificationService.Error(new NotificationConfig { Message = $"升级失败: {ex.Message}" });
+            operException = ex;
         }
         isOperating = false;
     }
@@ -169,8 +145,24 @@
         }
         catch (Exception ex)
         {
-            _ = NotificationService.Error(new NotificationConfig { Message = $"卸载失败: {ex.Message}" });
+            operException = ex;
         }
         isOperating = false;
+    }
+
+    async Task InstallVersion(string version)
+    {
+        operatingVersion = version;
+        try
+        {
+            await PluginMarketService.InstallPlugin(Plugin, version);
+            _ = NotificationService.Success(new NotificationConfig { Message = $"插件 [{Plugin.Name}] 已安装版本 {version}！" });
+            OnParametersSet();
+        }
+        catch (Exception ex)
+        {
+            operException = ex;
+        }
+        operatingVersion = null;
     }
 }

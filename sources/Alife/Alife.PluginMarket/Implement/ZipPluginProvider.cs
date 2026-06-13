@@ -1,11 +1,10 @@
-﻿using Alife.Platform;
+using Alife.Platform;
 using Newtonsoft.Json;
 
 namespace Alife.PluginMarket;
 
-public class GithubPluginProvider(string owner, string repo, string branch = "main") : IPluginProvider
+public class ZipPluginProvider(string zipUrl) : IPluginProvider
 {
-    readonly string zipUrl = $"https://github.com/{owner}/{repo}/archive/refs/heads/{branch}.zip";
     readonly string repoDir = Path.Combine(AlifePath.TempFolderPath, "PluginRepo");
 
     public async Task<Plugin[]> GetPluginsAsync()

@@ -8,46 +8,33 @@ using System.Runtime.Loader;
 using Alife.Platform;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.Extensions.Logging;
 
 namespace Alife.Framework;
 
-public class ModuleLoadContext(IEnumerable<string> contextDirectories) : AssemblyLoadContext("ModuleContext", isCollectible: true)
+public class ModuleLoadContext(string[] managedDirectories, string[] unmanagedDirectories) : AssemblyLoadContext("ModuleContext", isCollectible: true)
 {
-    public Dictionary<Assembly, string> AssemblyPaths => assemblyPaths;
-
-    public void LoadDll(string dllPath)
+    public Assembly LoadDll(string dllPath)
     {
         using var assemblyStream = new MemoryStream(File.ReadAllBytes(dllPath));
         string pdbPath = Path.ChangeExtension(dllPath, ".pdb");
         MemoryStream? pdbStream = File.Exists(pdbPath) ? new MemoryStream(File.ReadAllBytes(pdbPath)) : null;
         Assembly assembly = LoadFromStream(assemblyStream, pdbStream);
         pdbStream?.Dispose();
-        assemblyPaths.Add(assembly, dllPath);
+        return assembly;
     }
-
-    readonly string rid = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-        ? $"win-{RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant()}"
-        : RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
-            ? $"linux-{RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant()}"
-            : $"osx-{RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant()}";
-    readonly string[] dependencySearchPaths = contextDirectories.Append(AppContext.BaseDirectory).ToArray();
 
     protected override Assembly? Load(AssemblyName assemblyName)
     {
+        Assembly? loaded = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == assemblyName.Name);
+        if (loaded != null)
+            return loaded;
+
         string dllName = $"{assemblyName.Name}.dll";
-        foreach (string dir in dependencySearchPaths)
+        foreach (string dir in managedDirectories)
         {
             string path = Path.Combine(dir, dllName);
             if (File.Exists(path))
-            {
-                using var stream = new MemoryStream(File.ReadAllBytes(path));
-                string pdbPath = Path.ChangeExtension(path, ".pdb");
-                MemoryStream? pdbStream = File.Exists(pdbPath) ? new MemoryStream(File.ReadAllBytes(pdbPath)) : null;
-                Assembly assembly = LoadFromStream(stream, pdbStream);
-                pdbStream?.Dispose();
-                return assembly;
-            }
+                return LoadDll(path);
         }
         return null;
     }
@@ -57,7 +44,7 @@ public class ModuleLoadContext(IEnumerable<string> contextDirectories) : Assembl
         if (Path.HasExtension(unmanagedDllName) == false)
             unmanagedDllName += ".dll";
 
-        foreach (string dir in dependencySearchPaths)
+        foreach (string dir in unmanagedDirectories)
         {
             string[] candidatePaths = [
                 Path.Combine(dir, "runtimes", rid, "native", unmanagedDllName),
@@ -77,11 +64,17 @@ public class ModuleLoadContext(IEnumerable<string> contextDirectories) : Assembl
         return IntPtr.Zero;
     }
 
-    readonly Dictionary<Assembly, string> assemblyPaths = new();
+    readonly string rid = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        ? $"win-{RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant()}"
+        : RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
+            ? $"linux-{RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant()}"
+            : $"osx-{RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant()}";
 }
 
 public class ModuleSystem
 {
+    public event Action? OnModulesReloaded;
+
     public string GetModuleFolderRoot()
     {
         return moduleRoot;
@@ -90,6 +83,7 @@ public class ModuleSystem
     {
         return moduleFolder;
     }
+
     public IEnumerable<Type> GetAllModules()
     {
         return moduleTypes.Values;
@@ -102,28 +96,36 @@ public class ModuleSystem
     {
         return moduleType.FullName!;
     }
-    public void SetExtraDirectories(string[] directories)
-    {
-        extraDirectories = directories.Where(d => !string.IsNullOrWhiteSpace(d)).Distinct().ToArray();
-    }
-    public string[] GetExtraDirectories()
-    {
-        return extraDirectories;
-    }
     public void ReloadModules()
     {
-        //确保模块文件夹存在，防止报错]
+        //确保模块文件夹存在，防止报错
         if (Directory.Exists(moduleRoot) == false)
             Directory.CreateDirectory(moduleRoot);
 
         ReloadContext(CompileModule(moduleRoot));
+        OnModulesReloaded?.Invoke();
     }
     public ModuleLoadContext CompileModule(string source)
     {
-        ModuleLoadContext compilingContext = new(extraDirectories.Append(source));
+        //创建插件容器
+        ModuleLoadContext compilingContext;
+        {
+            List<string> extraDirectories = new(2) {
+                AppDomain.CurrentDomain.BaseDirectory
+            };
+            string baseDirectory = Path.Combine(moduleRoot, "BaseDirectory");
+            if (Directory.Exists(baseDirectory))//插件文件夹BaseDirectory，与旧版本兼容
+                extraDirectories.Add(baseDirectory);
+
+            compilingContext = new(
+                managedExtraDirectories.Concat(extraDirectories).ToArray(),
+                unmanagedExtraDirectories.Concat(extraDirectories).ToArray()
+            );
+        }
+
         try
         {
-            //加载dll
+            //加载插件目录的dll模块
             foreach (string file in Directory.GetFiles(source, "*.dll", SearchOption.AllDirectories))
             {
                 try
@@ -138,31 +140,7 @@ public class ModuleSystem
                 }
             }
 
-            //加载额外目录的dll
-            if (extraDirectories is { Length: > 0 })
-            {
-                foreach (string dir in extraDirectories)
-                {
-                    if (!Directory.Exists(dir))
-                        continue;
-
-                    foreach (string file in Directory.GetFiles(dir, "*.dll", SearchOption.AllDirectories))
-                    {
-                        try
-                        {
-                            string assemblyName = AssemblyName.GetAssemblyName(file).FullName;
-                            if (defaultAssemblies.Contains(assemblyName) == false)
-                                compilingContext.LoadDll(file);
-                        }
-                        catch
-                        {
-                            // ignored
-                        }
-                    }
-                }
-            }
-
-            //编译cs
+            //热编译插件目录的cs模块
             {
                 string dllPath = Path.Combine(AlifePath.TempFolderPath, "Modules.dll");
                 string pdbPath = Path.ChangeExtension(dllPath, ".pdb");
@@ -174,33 +152,33 @@ public class ModuleSystem
                         new CSharpParseOptions(LanguageVersion.Latest)))
                     .ToList();
 
-                //加载额外目录的cs
-                if (extraDirectories is { Length: > 0 })
-                {
-                    foreach (string dir in extraDirectories)
-                    {
-                        if (!Directory.Exists(dir))
-                            continue;
-
-                        syntaxTrees.AddRange(
-                            Directory.GetFiles(dir, "*.cs", SearchOption.AllDirectories)
-                                .Select(file => CSharpSyntaxTree.ParseText(
-                                    File.ReadAllText(file),
-                                    new CSharpParseOptions(LanguageVersion.Latest))));
-                    }
-                }
-
                 //收集元数据引用（去重）
                 var references = new List<MetadataReference>();
-                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                var addedAssemblies = new HashSet<string>();
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())//部分dll在运行时目录
                 {
                     if (asm.IsDynamic || string.IsNullOrEmpty(asm.Location))
                         continue;
                     references.Add(MetadataReference.CreateFromFile(asm.Location));
+                    addedAssemblies.Add(asm.GetName().Name!);
                 }
-                foreach (var path in compilingContext.AssemblyPaths.Values)
+                foreach (var path in managedExtraDirectories.Prepend(source))//插件目录的dll和nuget都用于编译
                 {
-                    references.Add(MetadataReference.CreateFromFile(path));
+                    foreach (string file in Directory.GetFiles(path, "*.dll", SearchOption.AllDirectories))
+                    {
+                        try
+                        {
+                            var name = AssemblyName.GetAssemblyName(file);
+                            if (addedAssemblies.Contains(name.Name!))
+                                continue;
+                            references.Add(MetadataReference.CreateFromFile(file));
+                            addedAssemblies.Add(name.Name!);
+                        }
+                        catch
+                        {
+                            // ignored
+                        }
+                    }
                 }
 
                 //编译
@@ -233,6 +211,13 @@ public class ModuleSystem
             throw;
         }
     }
+
+    public void SetExtraContext(string[] managed, string[] unmanaged)
+    {
+        managedExtraDirectories = managed;
+        unmanagedExtraDirectories = unmanaged;
+    }
+
     public void SaveData()
     {
         storageSystem.SetObject(moduleSystemConfig, moduleFolder);
@@ -248,30 +233,52 @@ public class ModuleSystem
     readonly StorageSystem storageSystem;
     readonly Dictionary<string, Type> moduleTypes;
     readonly StringFolder moduleFolder;
-    readonly HashSet<string> defaultAssemblies;
-    readonly Assembly[] thisAssemblies;
-    AssemblyLoadContext? moduleAssemblies;
-    string[] extraDirectories = [];
 
-    public ModuleSystem(StorageSystem storageSystem, ILogger<ModuleSystem> logger)
+    readonly HashSet<string> defaultAssemblies;
+    readonly Assembly[] alifeAssemblies;
+
+    AssemblyLoadContext? moduleAssemblies;
+    string[] managedExtraDirectories = [];
+    string[] unmanagedExtraDirectories = [];
+
+    public ModuleSystem(StorageSystem storageSystem)
     {
         this.storageSystem = storageSystem;
 
         moduleTypes = new Dictionary<string, Type>();
         moduleFolder = storageSystem.GetObject(moduleSystemConfig, new StringFolder("全部模块"))!;
 
-        //预热程序集，因为模块可能依赖Alife自身的程序集，结果Alife本身目前未用到，导致未加载
-        PreloadAllAssemblies();
         defaultAssemblies = AssemblyLoadContext.Default.Assemblies.Select(assembly => assembly.FullName).ToHashSet()!;
-        thisAssemblies = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => assembly.GetName().Name?.StartsWith("Alife") ?? false).ToArray();
+        alifeAssemblies = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => assembly.GetName().Name?.StartsWith("Alife") ?? false).ToArray();
+        LoadAssemblyChain(Assembly.GetEntryAssembly()!);//加载所有本地自带的程序，方便后续判断
 
-        try
+        void LoadAssemblyChain(Assembly entryAssembly)
         {
-            ReloadModules();
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "加载模块失败");
+            var loadedAssemblies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var queue = new Queue<Assembly>();
+            queue.Enqueue(entryAssembly);
+            while (queue.Count > 0)
+            {
+                var assembly = queue.Dequeue();
+                foreach (var reference in assembly.GetReferencedAssemblies())
+                {
+                    // 如果这个程序集还没被加载过
+                    if (!loadedAssemblies.Contains(reference.FullName))
+                    {
+                        try
+                        {
+                            // 强制加载它
+                            var loaded = Assembly.Load(reference);
+                            queue.Enqueue(loaded);
+                            loadedAssemblies.Add(reference.FullName);
+                        }
+                        catch
+                        {
+                            // 忽略加载失败的程序集（有些可能是环境相关的）
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -284,7 +291,7 @@ public class ModuleSystem
         moduleAssemblies = context;
 
         //统计Module
-        foreach (Assembly assembly in moduleAssemblies.Assemblies.Union(thisAssemblies))
+        foreach (Assembly assembly in moduleAssemblies.Assemblies.Union(alifeAssemblies))
         {
             foreach (Type type in assembly.GetTypes())
             {
@@ -330,35 +337,6 @@ public class ModuleSystem
             }
 
             folder.Strings.Add(typeName);
-        }
-    }
-
-    void PreloadAllAssemblies()
-    {
-        var loadedAssemblies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var queue = new Queue<Assembly>();
-        queue.Enqueue(Assembly.GetEntryAssembly()!);
-        while (queue.Count > 0)
-        {
-            var assembly = queue.Dequeue();
-            foreach (var reference in assembly.GetReferencedAssemblies())
-            {
-                // 如果这个程序集还没被加载过
-                if (!loadedAssemblies.Contains(reference.FullName))
-                {
-                    try
-                    {
-                        // 强制加载它
-                        var loaded = Assembly.Load(reference);
-                        queue.Enqueue(loaded);
-                        loadedAssemblies.Add(reference.FullName);
-                    }
-                    catch
-                    {
-                        // 忽略加载失败的程序集（有些可能是环境相关的）
-                    }
-                }
-            }
         }
     }
 }

@@ -1,24 +1,43 @@
 @using Alife.Components.Services
+@using Alife.Components.Shared.Common
 @using Alife.PluginMarket
 @inject PluginMarketService PluginMarketService
+@inject INotificationService NotificationService
+
+<ErrorWindowUI @bind-Value="@operException" />
 
 <div class="plugin-card" @onclick="HandleClick">
     <div class="plugin-card-header">
         <div class="plugin-icon">
-            <Icon Type="@IconType.Outline.Appstore" Style="font-size: 24px; color: #1890ff;" />
+            <Icon Type="@IconType.Outline.Appstore" Style="font-size: 16px; color: #1890ff;" />
         </div>
-        @if (showBadge && PluginMarketService.HasUpdate(Plugin))
-        {
-            <Badge Count="1" Style="background: #52c41a;" OverflowCount="99">
-                <span class="new-version-badge">new</span>
-            </Badge>
-        }
+        <div class="plugin-actions">
+            @if (!PluginMarketService.IsInstalled(Plugin.Id))
+            {
+                <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" Loading="isOperating"
+                         OnClick="@(() => Install($"插件 [{Plugin.Name}] 安装成功"))" OnClickStopPropagation="true">
+                    安装
+                </Button>
+            }
+            else if (hasUpdate)
+            {
+                <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" Loading="isOperating"
+                         OnClick="@(() => Install($"插件 [{Plugin.Name}] 升级成功"))" OnClickStopPropagation="true"
+                         Style="background: #52c41a; border-color: #52c41a;">
+                    升级
+                </Button>
+            }
+        </div>
     </div>
 
     <div class="plugin-card-body">
         <div class="plugin-name">@Plugin.Name</div>
+        @if (!string.IsNullOrEmpty(Plugin.Author))
+        {
+            <div class="plugin-author">@Plugin.Author</div>
+        }
         <div class="plugin-meta">
-            <Text Type="@TextElementType.Secondary" Style="font-size: 12px;">@Plugin.Id</Text>
+            <Text Type="@TextElementType.Secondary" Style="font-size: 11px;">@Plugin.Id</Text>
         </div>
         <div class="plugin-versions">
             @if (PluginMarketService.IsInstalled(Plugin.Id))
@@ -41,8 +60,8 @@
     .plugin-card {
         background: #fff;
         border: 1px solid #f0f0f0;
-        border-radius: 8px;
-        padding: 16px;
+        border-radius: 6px;
+        padding: 10px;
         cursor: pointer;
         transition: all 0.3s;
         height: 100%;
@@ -52,22 +71,22 @@
 
     .plugin-card:hover {
         border-color: #1890ff;
-        box-shadow: 0 4px 12px rgba(24, 144, 255, 0.15);
-        transform: translateY(-2px);
+        box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+        transform: translateY(-1px);
     }
 
     .plugin-card-header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        margin-bottom: 12px;
+        margin-bottom: 6px;
     }
 
     .plugin-icon {
-        width: 48px;
-        height: 48px;
+        width: 32px;
+        height: 32px;
         background: #e6f7ff;
-        border-radius: 12px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -80,14 +99,26 @@
     }
 
     .plugin-name {
-        font-size: 16px;
+        font-size: 13px;
         font-weight: 600;
         color: rgba(0, 0, 0, 0.85);
-        margin-bottom: 4px;
+        margin-bottom: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .plugin-author {
+        font-size: 11px;
+        color: rgba(0, 0, 0, 0.45);
+        margin-bottom: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .plugin-meta {
-        margin-bottom: 8px;
+        margin-bottom: 4px;
     }
 
     .plugin-versions {
@@ -100,11 +131,39 @@
 
 @code {
     [Parameter] public Plugin Plugin { get; set; } = null!;
-    [Parameter] public bool showBadge { get; set; } = true;
     [Parameter] public EventCallback<Plugin> OnClick { get; set; }
+    [Parameter] public EventCallback OnInstalled { get; set; }
+
+    bool isOperating;
+    bool hasUpdate;
+    Exception? operException;
+
+    protected override void OnParametersSet()
+    {
+        hasUpdate = PluginMarketService.HasUpdate(Plugin);
+    }
 
     async Task HandleClick()
     {
         await OnClick.InvokeAsync(Plugin);
+    }
+
+    async Task Install(string message)
+    {
+        string? version = PluginMarketService.GetLatestVersion(Plugin);
+        if (version == null) return;
+        isOperating = true;
+        try
+        {
+            await PluginMarketService.InstallPlugin(Plugin, version);
+            _ = NotificationService.Success(new NotificationConfig { Message = message });
+            hasUpdate = PluginMarketService.HasUpdate(Plugin);
+            await OnInstalled.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            operException = ex;
+        }
+        isOperating = false;
     }
 }

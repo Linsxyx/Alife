@@ -1,0 +1,283 @@
+@using System.Diagnostics
+@using System.IO
+@using System.Net.Http
+@using System.Reflection
+@using System.Windows
+@using Alife.Platform
+@using Newtonsoft.Json.Linq
+
+@if (updateInfo != null)
+{
+    <div class="update-notification @(isFadingOut ? "fade-out" : "fade-in")">
+        <div class="update-card">
+            <div class="update-header">
+                <Icon Type="@IconType.Outline.Bell" Style="font-size: 18px; color: #1890ff;" />
+                <span class="update-title">发现新版本 v@(updateInfo.Version)</span>
+            </div>
+
+            @if (!string.IsNullOrEmpty(updateInfo.ReleaseNotes))
+            {
+                <div class="update-notes">@updateInfo.ReleaseNotes</div>
+            }
+
+            <div class="update-actions">
+                @if (isDownloading)
+                {
+                    <Progress Percent="@downloadProgress" Status="ProgressStatus.Active" Style="width: 100%;" />
+                }
+                else
+                {
+                    <Button Type="@ButtonType.Primary" Size="@ButtonSize.Small" OnClick="StartUpdate">
+                        立即升级
+                    </Button>
+                    <Button Size="@ButtonSize.Small" OnClick="Dismiss">稍后再说</Button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    record UpdateInfo(string Version, string? ReleaseNotes, string DownloadUrl);
+
+    const string GitHubApiUrl = "https://api.github.com/repos/BDFFZI/Alife/releases/latest";
+
+    UpdateInfo? updateInfo;
+    bool isFadingOut;
+    bool isDownloading;
+    int downloadProgress;
+    System.Timers.Timer? dismissTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckForUpdateAsync();
+    }
+
+    async Task CheckForUpdateAsync()
+    {
+        try
+        {
+            using var http = new HttpClient();
+            http.DefaultRequestHeaders.Add("User-Agent", "Alife-DesktopPet");
+            var response = await http.GetStringAsync(GitHubApiUrl);
+            var json = JObject.Parse(response);
+
+            string? tagName = json["tag_name"]?.ToString();
+            if (string.IsNullOrEmpty(tagName))
+                return;
+
+            string latestVersion = tagName.TrimStart('v');
+            string currentVersion = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0";
+
+            if (new Version(latestVersion) > new Version(currentVersion))
+            {
+                string? body = json["body"]?.ToString();
+                string? downloadUrl = json["assets"]?[0]?["browser_download_url"]?.ToString();
+
+                if (!string.IsNullOrEmpty(downloadUrl))
+                {
+                    updateInfo = new UpdateInfo(latestVersion, body, downloadUrl);
+                    StartAutoDismissTimer();
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+        }
+        catch
+        {
+            // 网络异常静默忽略，不影响正常启动
+        }
+    }
+
+    void StartAutoDismissTimer()
+    {
+        dismissTimer = new System.Timers.Timer(5000);
+        dismissTimer.Elapsed += (_, _) =>
+        {
+            dismissTimer?.Stop();
+            isFadingOut = true;
+            InvokeAsync(StateHasChanged);
+            Task.Delay(500).ContinueWith(_ =>
+            {
+                updateInfo = null;
+                InvokeAsync(StateHasChanged);
+            });
+        };
+        dismissTimer.Start();
+    }
+
+    void Dismiss()
+    {
+        dismissTimer?.Stop();
+        isFadingOut = true;
+        Task.Delay(500).ContinueWith(_ =>
+        {
+            updateInfo = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    async Task StartUpdate()
+    {
+        if (updateInfo == null) return;
+
+        dismissTimer?.Stop();
+        isDownloading = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            string tempDir = Path.Combine(AlifePath.TempFolderPath, "Update");
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, true);
+
+            using var http = new HttpClient();
+            http.DefaultRequestHeaders.Add("User-Agent", "Alife-DesktopPet");
+
+            // 下载 ZIP
+            string zipPath = Path.Combine(tempDir, "Alife.zip");
+            using (var response = await http.GetAsync(updateInfo.DownloadUrl, HttpCompletionOption.ResponseHeadersRead))
+            {
+                response.EnsureSuccessStatusCode();
+                var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                var buffer = new byte[8192];
+
+                Directory.CreateDirectory(tempDir);
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var fileStream = File.Create(zipPath);
+
+                long totalRead = 0;
+                int bytesRead;
+                while ((bytesRead = await stream.ReadAsync(buffer)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead));
+                    totalRead += bytesRead;
+                    if (totalBytes > 0)
+                    {
+                        downloadProgress = (int)(totalRead * 100 / totalBytes);
+                        await InvokeAsync(StateHasChanged);
+                    }
+                }
+            }
+
+            // 备份当前版本
+            string backupDir = Path.Combine(AlifePath.RootFolderPath, "Backups", $"v{updateInfo.Version}");
+            string currentDir = AppContext.BaseDirectory;
+            if (Directory.Exists(backupDir))
+                Directory.Delete(backupDir, true);
+            CopyDirectory(currentDir, backupDir);
+
+            // 解压新版本
+            System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, currentDir, overwriteFiles: true);
+            Directory.Delete(tempDir, true);
+
+            // 重启应用
+            string exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+            Process.Start(exePath);
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            isDownloading = false;
+            downloadProgress = 0;
+            Console.WriteLine($"更新失败: {ex.Message}");
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    static void CopyDirectory(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var file in Directory.GetFiles(source))
+        {
+            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), true);
+        }
+        foreach (var dir in Directory.GetDirectories(source))
+        {
+            CopyDirectory(dir, Path.Combine(destination, Path.GetFileName(dir)));
+        }
+    }
+
+    public void Dispose()
+    {
+        dismissTimer?.Stop();
+        dismissTimer?.Dispose();
+    }
+}
+
+<style>
+    .update-notification {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 9999;
+        pointer-events: auto;
+    }
+
+    .update-card {
+        background: #fff;
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+        border: 1px solid #f0f0f0;
+        width: 320px;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .update-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .update-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: rgba(0, 0, 0, 0.85);
+    }
+
+    .update-notes {
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.45);
+        margin-bottom: 12px;
+        max-height: 60px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+    }
+
+    .update-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .fade-in {
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .fade-out {
+        animation: slideOut 0.5s ease-in forwards;
+    }
+
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes slideOut {
+        from {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        to {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+    }
+</style>

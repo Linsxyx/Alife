@@ -80,30 +80,75 @@ public class NuGetEnvironmentInstaller(string packageListFile) : IEnvironmentIns
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".nuget", "packages");
 
-        List<string> packagePaths = new();
-        if (doc.RootElement.TryGetProperty("libraries", out var libraries))
+        string rid = System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier;
+
+        HashSet<string> managedDirs = new();
+        HashSet<string> nativeDirs = new();
+
+        if (doc.RootElement.TryGetProperty("targets", out var targets))
         {
-            foreach (var lib in libraries.EnumerateObject())
+            string tfm = targets.EnumerateObject().First().Name;
+
+            if (targets.TryGetProperty(tfm, out var tfmTarget))
             {
-                if (lib.Value.TryGetProperty("path", out var path))
+                foreach (var pkg in tfmTarget.EnumerateObject())
                 {
-                    string packagePath = Path.Combine(nugetCache, path.GetString()!);
-                    if (Directory.Exists(packagePath))
-                        packagePaths.Add(packagePath);
+                    string packageRoot = pkg.Name.Split('/')[0];
+                    string packageVersion = pkg.Name.Split('/')[1];
+                    string pkgDir = Path.Combine(nugetCache, packageRoot, packageVersion);
+
+                    if (pkg.Value.TryGetProperty("compile", out var compile))
+                    {
+                        foreach (var dll in compile.EnumerateObject())
+                        {
+                            string dllPath = Path.Combine(pkgDir, dll.Name);
+                            string? dir = Path.GetDirectoryName(dllPath);
+                            if (dir != null && Directory.Exists(dir))
+                                managedDirs.Add(dir);
+                        }
+                    }
+
+                    string nativeDir = Path.Combine(pkgDir, "runtimes", rid, "native");
+                    if (Directory.Exists(nativeDir))
+                        nativeDirs.Add(nativeDir);
                 }
             }
         }
 
-        File.WriteAllLines(packageListFile, packagePaths);
+        List<string> lines = new();
+        foreach (string dir in managedDirs)
+            lines.Add($"managed:{dir}");
+        foreach (string dir in nativeDirs)
+            lines.Add($"unmanaged:{dir}");
+        File.WriteAllLines(packageListFile, lines);
     }
 
-    public string[] ReadPackageList()
+    public (string[] managed, string[] unmanaged) ReadPackageList()
     {
         if (!File.Exists(packageListFile))
-            return [];
+            return ([], []);
 
-        return File.ReadAllLines(packageListFile)
-            .Where(line => !string.IsNullOrWhiteSpace(line) && Directory.Exists(line))
-            .ToArray();
+        List<string> managed = new();
+        List<string> unmanaged = new();
+
+        foreach (string line in File.ReadAllLines(packageListFile))
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            if (line.StartsWith("managed:"))
+            {
+                string path = line["managed:".Length..];
+                if (Directory.Exists(path))
+                    managed.Add(path);
+            }
+            else if (line.StartsWith("unmanaged:"))
+            {
+                string path = line["unmanaged:".Length..];
+                if (Directory.Exists(path))
+                    unmanaged.Add(path);
+            }
+        }
+
+        return (managed.ToArray(), unmanaged.ToArray());
     }
 }

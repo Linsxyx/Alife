@@ -10,6 +10,9 @@ public class Plugin
     [JsonProperty("name")]
     public string Name { get; set; } = string.Empty;
 
+    [JsonProperty("author")]
+    public string Author { get; set; } = string.Empty;
+
     [JsonProperty("description")]
     public string Description { get; set; } = string.Empty;
 

@@ -1,13 +1,16 @@
 <Project>
   <PropertyGroup>
+    <!-- 版本号 -->
+    <Version>2.0.2</Version>
+    <AssemblyVersion>2.0.2.0</AssemblyVersion>
     <!-- 打包选项 -->
-    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     <!-- 打包目录 -->
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <OutputPath>$(MSBuildThisFileDirectory)Outputs\$(MSBuildProjectName)\</OutputPath>
+    <OutputPath>$(MSBuildThisFileDirectory)Outputs\$(Configuration)\$(MSBuildProjectName)\</OutputPath>
     <OutDir>$(OutputPath)</OutDir>
     <!-- C#功能 -->
     <Nullable>enable</Nullable>

@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -118,10 +119,18 @@ public class DeskPetService(XmlFunctionCaller functionService) : InteractiveModu
     {
         await base.AwakeAsync(context);
 
+        // 确保 DeskPet.Client 存在
+        string clientPath = Path.Combine(AlifePath.RuntimeFolderPath, "Alife.DeskPet.Client");
+        if (!Directory.Exists(clientPath))
+        {
+            string zipUrl = "https://github.com/BDFFZI/Alife.OfficialPluginStorage/raw/refs/heads/main/Alife.DeskPet.Client/1.0.0.zip";
+            await AlifePlatform.DownloadZipFileAsync(clientPath, zipUrl);
+        }
+
         string? modelName = Configuration?.ModelName;
         if (string.IsNullOrWhiteSpace(modelName))
             modelName = "Mao";
-        client = new PetServer(modelName);
+        client = new PetServer(clientPath, modelName);
         string supportedExpressionsDescription = string.Join(", ", client.SupportedExpressions);
         if (string.IsNullOrEmpty(supportedExpressionsDescription)) supportedExpressionsDescription = $"当前不支持<{nameof(Expression)}>功能";
         string supportedMotionsDescription = string.Join(", ", client.SupportedMotions.Keys);

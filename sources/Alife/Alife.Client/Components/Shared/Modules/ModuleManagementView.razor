@@ -1,6 +1,7 @@
 @using Alife.Components.Shared.Common
 @inject ModuleSystem ModuleSystem
 @inject IMessageService MessageService
+@implements IDisposable
 
 <ErrorWindowUI Title="模块重载失败喵！" @bind-Value="@reloadException"></ErrorWindowUI>
 
@@ -81,5 +82,20 @@
         {
             reloadException = ex;
         }
+    }
+
+    protected override void OnInitialized()
+    {
+        ModuleSystem.OnModulesReloaded += OnModulesReloaded;
+    }
+
+    private void OnModulesReloaded()
+    {
+        InvokeAsync(() => StateHasChanged());
+    }
+
+    public void Dispose()
+    {
+        ModuleSystem.OnModulesReloaded -= OnModulesReloaded;
     }
 }
