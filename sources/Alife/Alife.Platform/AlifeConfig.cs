@@ -1,18 +1,16 @@
 using System.Globalization;
-using System.IO;
-using System.Text.Json;
+using Microsoft.Win32;
 
 namespace Alife.Platform;
 
 public static class AlifeConfig
 {
-    public static string ConfigFilePath { get; private set; } = "";
+    const string RegistryPath = @"Software\Alife";
 
     static Dictionary<string, string> data = new();
 
-    public static void Initialize(string configFilePath)
+    public static void Initialize()
     {
-        ConfigFilePath = configFilePath;
         Load();
     }
 
@@ -91,17 +89,25 @@ public static class AlifeConfig
     {
         try
         {
-            if (File.Exists(ConfigFilePath))
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(RegistryPath);
+            if (key is not null)
             {
-                string json = File.ReadAllText(ConfigFilePath);
-                Dictionary<string, string>? loaded = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-                if (loaded is not null)
-                    data = loaded;
+                data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (string valueName in key.GetValueNames())
+                {
+                    object? value = key.GetValue(valueName);
+                    if (value is string s)
+                        data[valueName] = s;
+                }
+            }
+            else
+            {
+                data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             }
         }
         catch
         {
-            data = new Dictionary<string, string>();
+            data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
     }
 
@@ -109,13 +115,11 @@ public static class AlifeConfig
     {
         try
         {
-            string? directory = Path.GetDirectoryName(ConfigFilePath);
-            if (string.IsNullOrEmpty(directory) is false && Directory.Exists(directory) is false)
-                Directory.CreateDirectory(directory);
+            using RegistryKey? key = Registry.CurrentUser.CreateSubKey(RegistryPath);
+            if (key is null) return;
 
-            JsonSerializerOptions options = new() { WriteIndented = true };
-            string json = JsonSerializer.Serialize(data, options);
-            File.WriteAllText(ConfigFilePath, json);
+            foreach (var kvp in data)
+                key.SetValue(kvp.Key, kvp.Value, RegistryValueKind.String);
         }
         catch (Exception ex)
         {

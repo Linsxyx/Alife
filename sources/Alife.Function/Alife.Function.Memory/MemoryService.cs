@@ -251,9 +251,6 @@ public partial class MemoryService(XmlFunctionCaller functionService)
         handler = new(this) {
             Description = "当你需要管理或查找记忆时，请使用该函数",
             Explanation = $"""
-                           ## 记忆工具
-                           {handler.FunctionDocument()}
-
                            ## 记忆存储
                            所有记忆都直接存储在上下文中，不过早期记忆会被压缩，然后以记忆存档的方式存在上下文中。
                            每个记忆存档都有一个唯一ID，其格式为`等级-起始日期-截至日期`，例如`2-20260421014905-20260512022747`，就表明这是一个2级记忆存档，存储了从2026年4月21日1点49分到5月12号2点27分的记忆。

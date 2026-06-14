@@ -1,154 +1,731 @@
 @page "/"
 @page "/welcome"
-@using Alife.Components.Shared.Characters
-@inject CharacterSystem CharacterSystem
-@inject ModuleSystem ModuleSystem
+@using Alife.Components.Services
+@using Alife.Framework
+@using Alife.Platform
+@inject EnvironmentChecker EnvChecker
 @inject ConfigurationSystem ConfigurationSystem
+@inject ModuleSystem ModuleSystem
+@inject CharacterSystem CharacterSystem
+@inject PluginMarketService PluginMarketService
+@inject NavigationManager Navigation
 @inject INotificationService NotificationService
+@inject IMessageService MessageService
 
-<div class="welcome-container">
-    <div class="welcome-card">
-        <div class="welcome-icon">
-            <Icon Type="@IconType.Outline.Rocket" Style="font-size: 64px; color: #1890ff;"/>
+<div class="welcome-page">
+    <div class="welcome-bubble">
+        <div class="bubble-header">
+            <div class="step-indicator">
+                @for (int i = 1; i <= 4; i++)
+                {
+                    <div class="step-dot @(currentStep == i ? "active" : "") @(currentStep > i ? "completed" : "")">
+                        @if (currentStep > i)
+                        {
+                            <Icon Type="@IconType.Outline.Check" Style="font-size:12px;"/>
+                        }
+                        else
+                        {
+                            @i
+                        }
+                    </div>
+                    @if (i < 4)
+                    {
+                        <div class="step-line @(currentStep > i ? "completed" : "")"></div>
+                    }
+                }
+            </div>
         </div>
 
-        <Title Level="1" Style="margin-top: 24px; color: #1a1a1a;">欢迎使用 Alife 代理框架！</Title>
-        <Paragraph Style="font-size: 16px; color: rgba(0,0,0,0.45); max-width: 520px; margin: 0 auto 40px auto;">
-            Alife 是一款因个人兴趣而诞生的开源代理框架，专门针对桌宠陪伴方向设计，实现一键部署、高互动感、高扩展性的陪伴体验。开发和使用都力求简单透明，没有负担也没有约束，因为一切都是个人的奇思妙想。
-        </Paragraph>
+        <div class="bubble-body">
+            @if (currentStep == 1)
+            {
+                <div class="step-content step-1">
+                    <div class="step-icon" style="background:rgba(24,144,255,.1);color:#1890ff;">
+                        <Icon Type="@IconType.Outline.CloudDownload" Style="font-size:28px;"/>
+                    </div>
+                    <h2 class="step-title">配置运行环境</h2>
+                    <p class="step-desc">VC++、Python、.NET SDK（必需）及 CUDA（可选）</p>
+                    <p class="step-hint">安装依赖需要访问 pypi.org，请确保网络可正常连接</p>
+                    
+                    <div class="env-grid">
+                        @RenderEnv("VC++ 运行库", EnvChecker.VCRedist)
+                        @RenderEnv("Python 3.12 + pip", EnvChecker.Python)
+                        @RenderEnv(".NET SDK 10", EnvChecker.DotNetSdk)
+                        @RenderEnv("CUDA 加速", EnvChecker.Cuda, true)
+                    </div>
+                    
+                    @if (!string.IsNullOrEmpty(envProgressMsg))
+                    {
+                        <div class="progress-tip"><Icon Type="loading"/>@envProgressMsg</div>
+                    }
+                    
+                    <div class="step-actions">
+                        <Button Size="@ButtonSize.Small" Icon="@IconType.Outline.Reload" Loading="@isCheckingEnv" OnClick="@OnCheckEnv">检测</Button>
+                        <Button Size="@ButtonSize.Small" Type="@ButtonType.Primary" Icon="@IconType.Outline.Thunderbolt" Loading="@isInstallingEnv" OnClick="@OnInstallAllRequired">一键安装必要环境</Button>
+                        <Button Size="@ButtonSize.Small" OnClick="@OnInstallCuda" Loading="@isInstallingCuda">配置 CUDA</Button>
+                    </div>
+                    
+                    <div class="step-next">
+                        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Large" Disabled="@(!envAllReady)" OnClick="@(() => GoToStep(2))">
+                            下一步 <Icon Type="@IconType.Outline.ArrowRight"/>
+                        </Button>
+                    </div>
+                </div>
+            }
+            else if (currentStep == 2)
+            {
+                <div class="step-content step-2">
+                    <div class="step-icon" style="background:rgba(82,196,26,.1);color:#52c41a;">
+                        <Icon Type="@IconType.Outline.Setting" Style="font-size:28px;"/>
+                    </div>
+                    <h2 class="step-title">配置 LLM 信息</h2>
+                    <p class="step-desc">接入 OpenAI 兼容协议的大语言模型</p>
+                    
+                    <Form TModel="OpenAILanguageModelConfig" Model="@llmConfig" Layout="@FormLayout.Vertical" Size="@FormSize.Small">
+                        <FormItem Label="API Base URL（端点）">
+                            <Input @bind-Value="@llmConfig.endpoint" Placeholder="例如: https://api.deepseek.com/v1" Size="@InputSize.Small"/>
+                        </FormItem>
+                        <FormItem Label="Model ID（模型名称）">
+                            <div style="display:flex;gap:6px;">
+                                <Input @bind-Value="@llmConfig.modelId" Placeholder="例如: deepseek-chat" Size="@InputSize.Small" Style="flex:1;"/>
+                                <Button Size="@ButtonSize.Small" Icon="@IconType.Outline.Search" Loading="@isFetchingModels" OnClick="@FetchModels">探测</Button>
+                            </div>
+                        </FormItem>
+                        <FormItem Label="API Key（密钥）">
+                            <InputPassword @bind-Value="@llmConfig.apiKey" Placeholder="填入你的 API Key" Size="@InputSize.Small"/>
+                        </FormItem>
+                    </Form>
+                    
+                    <div class="step-nav">
+                        <Button Size="@ButtonSize.Large" OnClick="@(() => GoToStep(1))">
+                            <Icon Type="@IconType.Outline.ArrowLeft"/> 上一步
+                        </Button>
+                        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Large" Disabled="@(string.IsNullOrWhiteSpace(llmConfig.endpoint) || string.IsNullOrWhiteSpace(llmConfig.apiKey))" OnClick="@OnSaveAndNext">
+                            下一步 <Icon Type="@IconType.Outline.ArrowRight"/>
+                        </Button>
+                    </div>
+                </div>
+            }
+            else if (currentStep == 3)
+            {
+                <div class="step-content step-3">
+                    <div class="step-icon" style="background:rgba(250,173,20,.1);color:#faad14;">
+                        <Icon Type="@IconType.Outline.CloudDownload" Style="font-size:28px;"/>
+                    </div>
+                    <h2 class="step-title">下载官方预设包</h2>
+                    <p class="step-desc">包含内置角色、插件和配置预设</p>
 
-        <Flex Gap="@FlexGap.Large" Align="@FlexAlign.Center" Justify="@FlexJustify.Center">
-            <Button Type="@ButtonType.Primary"
-                    Size="@ButtonSize.Large"
-                    Icon="@IconType.Outline.Thunderbolt"
-                    OnClick="@(() => isQuickSetupVisible = true)"
-                    Style="height: 48px; border-radius: 24px; padding: 0 32px; font-weight: bold; box-shadow: 0 4px 12px rgba(24,144,255,0.3)">
-                开始创建第一个角色
-            </Button>
-        </Flex>
+                    @if (PresetInstalled)
+                    {
+                        <div class="preset-status">
+                            <Icon Type="@IconType.Outline.CheckCircle" Style="color:#52c41a;font-size:16px;"/>
+                            <span>预设包已安装</span>
+                        </div>
+                    }
 
-        <div
-            style="margin-top: 40px; text-align: left; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 16px; border: 1px solid rgba(0,0,0,0.05);">
-            <Text Strong style="display: block; margin-bottom: 8px;">全局数据存储目录 (StorageFolderPath)</Text>
-            <Flex Gap="@("small")">
-                <Input @bind-Value="storageFolderPath" Placeholder="默认为应用目录"
-                       Style="flex: 1;"/>
-                <Button Icon="@IconType.Outline.FolderOpen" OnClick="@(OnPickFolder)"></Button>
-                <Button Type="@ButtonType.Default" OnClick="@(SaveStoragePath)">保存修改</Button>
-            </Flex>
-            <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 8px; display: block;">提示：将其定位到 OneDrive 等跨设备目录，即可实现多端无缝同步喵！(重启生效)
-            </Text>
-        </div>
+                    <div class="field-row">
+                        <label class="field-label">预设包 URL</label>
+                        <Input @bind-Value="@presetUrl" Placeholder="留空则跳过" Size="@InputSize.Small"/>
+                    </div>
+                    <div class="field-row">
+                        <label class="field-label">下载路径</label>
+                        <div style="display:flex;gap:6px;">
+                            <Input @bind-Value="@presetTargetPath" Size="@InputSize.Small" Style="flex:1;" Disabled="@isDownloadingPreset"/>
+                            <Button Size="@ButtonSize.Small" Icon="@IconType.Outline.FolderOpen" OnClick="@OnPickPresetFolder" Disabled="@isDownloadingPreset"/>
+                        </div>
+                        <span class="field-hint">当前存储目录：@AlifePath.StorageFolderPath</span>
+                    </div>
 
-        <div style="margin-top: 40px; color: rgba(0,0,0,0.25); font-size: 12px;">
-            <p>Alife.Client Project - Lightweight Desktop Pet Framework</p>
+                    @if (!string.IsNullOrEmpty(presetProgressMsg))
+                    {
+                        <div class="progress-tip"><Icon Type="loading"/>@presetProgressMsg</div>
+                    }
+                    @if (presetDownloading)
+                    {
+                        <Progress Percent="@presetProgressPercent" Style="margin-bottom:8px;"/>
+                    }
+
+                    <div class="btn-row" style="margin-bottom:12px;">
+                        <Button Size="@ButtonSize.Small" Icon="@IconType.Outline.CloudDownload" Loading="@isDownloadingPreset" Disabled="@string.IsNullOrWhiteSpace(presetUrl)" OnClick="@OnDownloadPreset">下载</Button>
+                        <Button Size="@ButtonSize.Small" Type="@ButtonType.Primary" Icon="@IconType.Outline.Import" Loading="@isInstallingPreset" OnClick="@OnInstallPreset">安装</Button>
+                    </div>
+
+                    <div class="step-nav">
+                        <Button Size="@ButtonSize.Large" OnClick="@(() => GoToStep(2))">
+                            <Icon Type="@IconType.Outline.ArrowLeft"/> 上一步
+                        </Button>
+                        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Large" Disabled="@(!PresetInstalled)" OnClick="@(() => GoToStep(4))">
+                            下一步 <Icon Type="@IconType.Outline.ArrowRight"/>
+                        </Button>
+                    </div>
+                </div>
+            }
+            else if (currentStep == 4)
+            {
+                <div class="step-content step-4">
+                    <div class="step-icon" style="background:rgba(82,196,26,.1);color:#52c41a;">
+                        <Icon Type="@IconType.Outline.CheckCircle" Style="font-size:28px;"/>
+                    </div>
+                    <h2 class="step-title">配置完成</h2>
+                    <p class="step-desc">Alife 已准备就绪，以下是关键功能入口</p>
+                    
+                    <div class="nav-cards">
+                        <div class="nav-card">
+                            <div class="nc-icon" style="background:rgba(24,144,255,.1);color:#1890ff;">
+                                <Icon Type="@IconType.Outline.User"/>
+                            </div>
+                            <div class="nc-body">
+                                <h3 class="nc-title">角色工作台</h3>
+                                <p class="nc-desc">创建和管理智能角色，编辑设定、启动对话</p>
+                                @if (CharacterSystem.GetAllCharacters().Count > 0)
+                                {
+                                    <Button Size="@ButtonSize.Small" Block OnClick="@OnGoToCharacter">进入角色页</Button>
+                                }
+                                else
+                                {
+                                    <div style="display:flex;gap:6px;">
+                                        <Input @bind-Value="@newCharacterName" Placeholder="角色名称" Size="@InputSize.Small" Style="flex:1;"/>
+                                        <Button Size="@ButtonSize.Small" Disabled="@string.IsNullOrWhiteSpace(newCharacterName)" OnClick="@OnCreateCharacter">创建</Button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        <div class="nav-card">
+                            <div class="nc-icon" style="background:rgba(82,196,26,.1);color:#52c41a;">
+                                <Icon Type="@IconType.Outline.Build"/>
+                            </div>
+                            <div class="nc-body">
+                                <h3 class="nc-title">功能模块</h3>
+                                <p class="nc-desc">管理 AI 模型、语音、视觉、桌宠等能力模块</p>
+                                <Button Size="@ButtonSize.Small" Block OnClick="@(() => Navigation.NavigateTo("/system"))">前往系统管理</Button>
+                            </div>
+                        </div>
+                        <div class="nav-card">
+                            <div class="nc-icon" style="background:rgba(250,173,20,.1);color:#faad14;">
+                                <Icon Type="@IconType.Outline.Shop"/>
+                            </div>
+                            <div class="nc-body">
+                                <h3 class="nc-title">插件市场</h3>
+                                <p class="nc-desc">浏览和安装社区插件，扩展功能边界</p>
+                                <Button Size="@ButtonSize.Small" Block OnClick="@(() => Navigation.NavigateTo("/system"))">前往插件市场</Button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="step-actions" style="margin-top:20px;">
+                        <Button Type="@ButtonType.Primary" Size="@ButtonSize.Large" Icon="@IconType.Outline.Home" Block OnClick="@OnStartUsing">
+                            开始使用 Alife
+                        </Button>
+                    </div>
+                </div>
+            }
         </div>
     </div>
 </div>
-<Modal Title="极速配置助手"
-       Visible="@isQuickSetupVisible"
-       OnOk="@OnQuickSetupConfirm"
-       OnCancel="@(() => isQuickSetupVisible = false)"
-       Width="500">
-    <div style="margin-bottom: 24px;">
-        <Text>请输入您的 OpenAI 兼容协议接口信息喵！填写后我们将自动配置并创建首个专属智能角色助理。</Text>
-    </div>
-    <Form TModel="OpenAILanguageModelConfig" Model="quickConfig" Layout="@FormLayout.Vertical">
-        <FormItem Label="API Base URL (端点)">
-            <Input @bind-Value="quickConfig.endpoint" Placeholder="例如: https://api.deepseek.com/v1"/>
-        </FormItem>
-        <FormItem Label="Model ID (模型名称)">
-            <Input @bind-Value="quickConfig.modelId" Placeholder="例如: deepseek-chat"/>
-        </FormItem>
-        <FormItem Label="API Key (密钥)">
-            <InputPassword @bind-Value="quickConfig.apiKey" Placeholder="填入你的 API Key 🔑"/>
-        </FormItem>
-    </Form>
-</Modal>
 
 @code {
-    bool isQuickSetupVisible;
-    readonly OpenAILanguageModelConfig quickConfig = new();
-    string storageFolderPath = Platform.AlifePath.StorageFolderPath;
+    int currentStep = 1;
+    bool isCheckingEnv, isInstallingEnv, isInstallingCuda;
+    string envProgressMsg = "";
+    bool envAllReady =>
+        EnvChecker.VCRedist.Status == EnvStatus.Ready
+        && EnvChecker.Python.Status == EnvStatus.Ready
+        && EnvChecker.DotNetSdk.Status == EnvStatus.Ready;
 
-    void OnPickFolder()
+    readonly OpenAILanguageModelConfig llmConfig = new();
+    bool isFetchingModels, llmConfigured;
+
+    string presetUrl = "", presetTargetPath = "";
+    bool isDownloadingPreset, presetDownloading, isInstallingPreset;
+    double presetProgressPercent;
+    string presetProgressMsg = "";
+    bool PresetInstalled => PluginMarketService.IsInstalled("Alife.Function.FunctionCaller");
+
+    string newCharacterName = "";
+
+    protected override async Task OnInitializedAsync()
     {
-        var result = Platform.AlifePlatform.PickFolder();
-        if (!string.IsNullOrWhiteSpace(result))
+        object? cfg = ConfigurationSystem.GetConfiguration(typeof(OpenAILanguageModel));
+        if (cfg is OpenAILanguageModelConfig existing)
         {
-            storageFolderPath = result;
+            llmConfig.endpoint = existing.endpoint;
+            llmConfig.modelId = existing.modelId;
+            llmConfig.apiKey = existing.apiKey;
+            llmConfig.reasoningEffort = existing.reasoningEffort;
+            llmConfig.extraHeaders = existing.extraHeaders;
+            llmConfig.extraBody = existing.extraBody;
+            llmConfigured = !string.IsNullOrWhiteSpace(existing.apiKey) && !string.IsNullOrWhiteSpace(existing.endpoint);
         }
+        presetTargetPath = AlifePath.StorageFolderPath;
+        await EnvChecker.CheckAllAsync();
     }
 
-    void SaveStoragePath()
+    void GoToStep(int step)
     {
-        if (!string.IsNullOrWhiteSpace(storageFolderPath))
+        currentStep = step;
+        StateHasChanged();
+    }
+
+    async Task OnCheckEnv()
+    {
+        isCheckingEnv = true; StateHasChanged();
+        await EnvChecker.CheckAllAsync();
+        isCheckingEnv = false;
+    }
+
+    async Task OnInstallAllRequired()
+    {
+        isInstallingEnv = true; envProgressMsg = ""; StateHasChanged();
+        IProgress<string> p = new System.Progress<string>(msg => { envProgressMsg = msg; InvokeAsync(StateHasChanged); });
+        if (EnvChecker.VCRedist.Status != EnvStatus.Ready) await EnvChecker.InstallVCppRedistAsync(p);
+        if (EnvChecker.Python.Status != EnvStatus.Ready) await EnvChecker.InstallPythonAsync(p);
+        if (EnvChecker.DotNetSdk.Status != EnvStatus.Ready)
         {
-            Platform.AlifePath.SetStorageFolderPath(storageFolderPath);
-            _ = NotificationService.Success(new NotificationConfig() { Message = "存储路径已保存！重启将启用新路径的数据喵~" });
+            p.Report("正在打开 .NET SDK 10 下载页面...");
+            EnvChecker.OpenDotNetSdkDownloadPage();
+            await EnvChecker.CheckDotNetSdkAsync();
         }
+        envProgressMsg = "必要环境配置完成！";
+        isInstallingEnv = false; StateHasChanged();
     }
 
-    void OnQuickSetupConfirm()
+    async Task OnInstallCuda()
     {
-        if (string.IsNullOrWhiteSpace(quickConfig.apiKey) || string.IsNullOrWhiteSpace(quickConfig.endpoint)) return;
-
-        if (!string.IsNullOrWhiteSpace(storageFolderPath))
-            Platform.AlifePath.SetStorageFolderPath(storageFolderPath);
-
-        ConfigurationSystem.SetConfiguration(typeof(OpenAILanguageModel), quickConfig);
-
-        Character character = CharacterSystem.GetAllCharacters().FirstOrDefault(c => c.Name == "真央") ??
-                              CharacterSystem.CreateCharacter("真央");
-        character.Modules.Add(ModuleSystem.GetModuleID(typeof(OpenAILanguageModel)));
-        CharacterSystem.SaveCharacter(character);
-
-        isQuickSetupVisible = false;
+        isInstallingCuda = true; envProgressMsg = ""; StateHasChanged();
+        IProgress<string> p = new System.Progress<string>(msg => { envProgressMsg = msg; InvokeAsync(StateHasChanged); });
+        await EnvChecker.InstallCudaAsync(p);
+        isInstallingCuda = false; StateHasChanged();
     }
+
+    async Task FetchModels()
+    {
+        if (string.IsNullOrWhiteSpace(llmConfig.endpoint) || string.IsNullOrWhiteSpace(llmConfig.apiKey))
+        { MessageService.Warning("请先填写 Endpoint 和 API Key"); return; }
+        isFetchingModels = true; StateHasChanged();
+        try
+        {
+            using HttpClient c = new();
+            c.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", llmConfig.apiKey);
+            string url = llmConfig.endpoint.TrimEnd('/');
+            if (!url.EndsWith("/models")) url += "/models";
+            var r = await c.GetAsync(url);
+            if (r.IsSuccessStatusCode)
+            {
+                var obj = Newtonsoft.Json.Linq.JObject.Parse(await r.Content.ReadAsStringAsync());
+                var models = obj["data"]?.Select(m => m["id"]?.ToString()).Where(id => !string.IsNullOrEmpty(id)).OrderBy(id => id).ToList();
+                if (models != null && models.Any()) MessageService.Success($"探测到 {models.Count} 个模型，请手动输入 Model ID");
+                else MessageService.Warning("未发现可用模型");
+            }
+            else MessageService.Error($"拉取失败 ({r.StatusCode})");
+        }
+        catch (Exception ex) { MessageService.Error($"连接出错: {ex.Message}"); }
+        finally { isFetchingModels = false; StateHasChanged(); }
+    }
+
+    void OnSaveLlmConfig()
+    {
+        if (string.IsNullOrWhiteSpace(llmConfig.apiKey) || string.IsNullOrWhiteSpace(llmConfig.endpoint))
+        { MessageService.Warning("Endpoint 和 API Key 不能为空"); return; }
+        ConfigurationSystem.SetConfiguration(typeof(OpenAILanguageModel), llmConfig);
+        llmConfigured = true;
+        _ = NotificationService.Success(new NotificationConfig { Message = "LLM 配置已保存！" });
+    }
+
+    void OnSaveAndNext()
+    {
+        OnSaveLlmConfig();
+        GoToStep(3);
+    }
+
+    async Task OnPickPresetFolder()
+    {
+        string? result = await AlifePlatform.PickFolderAsync();
+        if (!string.IsNullOrWhiteSpace(result)) presetTargetPath = result;
+    }
+
+    async Task OnDownloadPreset()
+    {
+        if (string.IsNullOrWhiteSpace(presetUrl)) return;
+        isDownloadingPreset = true; presetDownloading = true; presetProgressPercent = 0;
+        presetProgressMsg = "正在下载预设包..."; StateHasChanged();
+        try
+        {
+            string target = string.IsNullOrWhiteSpace(presetTargetPath) ? AlifePath.StorageFolderPath : presetTargetPath;
+            presetProgressPercent = 30; StateHasChanged();
+            await AlifePlatform.DownloadZipFileAsync(target, presetUrl);
+            presetProgressPercent = 100; presetProgressMsg = "预设包下载完成，请点击「安装」按钮完成加载";
+            _ = NotificationService.Success(new NotificationConfig { Message = "预设包下载完成喵~" });
+        }
+        catch (Exception ex)
+        {
+            presetProgressMsg = $"下载失败: {ex.Message}";
+            _ = NotificationService.Error(new NotificationConfig { Message = $"预设包下载失败: {ex.Message}" });
+        }
+        finally { isDownloadingPreset = false; presetDownloading = false; StateHasChanged(); }
+    }
+
+    void OnInstallPreset()
+    {
+        isInstallingPreset = true; presetProgressMsg = "正在重载角色和插件..."; StateHasChanged();
+        CharacterSystem.RefreshCharacters();
+        PluginMarketService.RefreshLocalPlugins();
+        ModuleSystem.ReloadModules();
+        presetProgressMsg = "预设包安装完成！";
+        isInstallingPreset = false;
+        _ = NotificationService.Success(new NotificationConfig { Message = "预设包安装完成喵~" });
+        StateHasChanged();
+    }
+
+    void OnGoToCharacter()
+    {
+        var first = CharacterSystem.GetAllCharacters().FirstOrDefault();
+        if (first != null) Navigation.NavigateTo($"/agent/{first.Name}");
+    }
+
+    void OnCreateCharacter()
+    {
+        if (string.IsNullOrWhiteSpace(newCharacterName)) return;
+        Character ch = CharacterSystem.CreateCharacter(newCharacterName);
+        Navigation.NavigateTo($"/agent/{ch.Name}");
+    }
+
+    void OnStartUsing()
+    {
+        var first = CharacterSystem.GetAllCharacters().FirstOrDefault();
+        if (first != null) Navigation.NavigateTo($"/agent/{first.Name}");
+        else Navigation.NavigateTo("/system");
+    }
+
+    RenderFragment RenderEnv(string label, EnvCheckResult result, bool optional = false) => builder =>
+    {
+        int s = 0;
+        builder.OpenElement(s++, "div");
+        builder.AddAttribute(s++, "class", "ev" + (optional ? " ev-opt" : ""));
+
+        builder.OpenElement(s++, "span");
+        string c = result.Status == EnvStatus.Ready ? "ev-ok" : result.Status == EnvStatus.Error ? "ev-err" : "";
+        builder.AddAttribute(s++, "class", "ev-icon " + c);
+        if (result.Status == EnvStatus.Checking)
+            builder.AddMarkupContent(s++, "<svg style=\"animation:spin 1s linear infinite\" viewBox=\"0 0 1024 1024\" width=\"14\" height=\"14\"><path d=\"M988 548c-19.9 0-36-16.1-36-36 0-117.3-94.7-212-212-212-48.1 0-93.3 15.7-130.3 42.1-15.5-5.3-32.5-8.2-50-8.2-85.3 0-154.7 69.4-154.7 154.7 0 5.9.7 11.7 1.8 17.4C302.2 343.5 221.7 441.5 221.5 555.5c0 19.9 16.1 36 36 36s36-16.1 36-36c0-117.3 94.7-212 212-212 48.1 0 93.3 15.7 130.3 42.1 15.5 5.3 32.5 8.2 50 8.2 85.3 0 154.7-69.4 154.7-154.7 0-5.9-.7-11.7-1.8-17.4C961.4 568.8 982 554.6 988 548z\" fill=\"currentColor\"/></svg>");
+        else if (result.Status == EnvStatus.Ready)
+            builder.AddMarkupContent(s++, "<svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"/><polyline points=\"22 4 12 14.01 9 11.01\"/></svg>");
+        else
+            builder.AddMarkupContent(s++, "<svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"15\" y1=\"9\" x2=\"9\" y2=\"15\"/><line x1=\"9\" y1=\"9\" x2=\"15\" y2=\"15\"/></svg>");
+        builder.CloseElement();
+
+        builder.OpenElement(s++, "span");
+        builder.AddAttribute(s++, "class", "ev-name");
+        builder.AddContent(s++, label);
+        builder.CloseElement();
+
+        if (optional)
+        {
+            builder.OpenElement(s++, "span");
+            builder.AddAttribute(s++, "class", "ev-tag");
+            builder.AddContent(s++, "可选");
+            builder.CloseElement();
+        }
+
+        builder.OpenElement(s++, "span");
+        builder.AddAttribute(s++, "class", "ev-msg");
+        builder.AddContent(s++, result.Message);
+        builder.CloseElement();
+
+        builder.CloseElement();
+    };
+}
+<style>
+.welcome-page {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(24,144,255,.03) 0%, rgba(24,144,255,.08) 50%, rgba(24,144,255,.03) 100%);
+    padding: 24px;
 }
 
-<style>
-    .welcome-container {
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: radial-gradient(circle at top right, rgba(24, 144, 255, 0.05) 0%, transparent 40%),
-        radial-gradient(circle at bottom left, rgba(24, 144, 255, 0.05) 0%, transparent 40%);
-        animation: fadeIn 0.8s ease-out;
-    }
+.welcome-bubble {
+    width: 100%;
+    max-width: 520px;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.04);
+    overflow: hidden;
+    animation: bubbleIn 0.4s ease-out;
+}
 
-    .welcome-card {
-        text-align: center;
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(20px);
-        padding: 60px 40px;
-        border-radius: 32px;
-        border: 1px solid rgba(255, 255, 255, 0.8);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
-    }
+@@keyframes bubbleIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
 
-    .welcome-icon {
-        animation: float 3s ease-in-out infinite;
-    }
+.bubble-header {
+    padding: 24px 32px 0;
+}
 
-    @@keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
+.step-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+}
 
-    @@keyframes float {
-        0%, 100% {
-            transform: translateY(0px);
-        }
-        50% {
-            transform: translateY(-15px);
-        }
-    }
+.step-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    color: rgba(0,0,0,.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.step-dot.active {
+    background: #1890ff;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(24,144,255,.3);
+}
+
+.step-dot.completed {
+    background: #52c41a;
+    color: #fff;
+}
+
+.step-line {
+    width: 40px;
+    height: 2px;
+    background: #e8e8e8;
+    margin: 0 8px;
+    transition: background 0.3s ease;
+}
+
+.step-line.completed {
+    background: #52c41a;
+}
+
+.bubble-body {
+    padding: 24px 32px;
+    min-height: 380px;
+    display: flex;
+    flex-direction: column;
+}
+
+.step-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.3s ease;
+}
+
+@@keyframes fadeIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.step-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+
+.step-title {
+    margin: 0 0 8px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1a1a;
+    text-align: center;
+}
+
+.step-desc {
+    margin: 0 0 20px;
+    font-size: 13px;
+    color: rgba(0,0,0,.45);
+    text-align: center;
+}
+
+.step-hint {
+    margin: -12px 0 16px;
+    font-size: 11px;
+    color: #faad14;
+    text-align: center;
+}
+
+.preset-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    margin-bottom: 16px;
+    background: rgba(82,196,26,.06);
+    border: 1px solid rgba(82,196,26,.15);
+    border-radius: 8px;
+    font-size: 13px;
+    color: #52c41a;
+    font-weight: 500;
+}
+
+.env-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.ev {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,.02);
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.ev-opt { opacity: .7; }
+
+.ev-icon {
+    display: flex;
+    align-items: center;
+    width: 16px;
+    justify-content: center;
+    flex-shrink: 0;
+    color: rgba(0,0,0,.2);
+}
+
+.ev-ok { color: #52c41a; }
+.ev-err { color: #ff4d4f; }
+
+.ev-name {
+    font-weight: 500;
+    color: #333;
+}
+
+.ev-tag {
+    font-size: 10px;
+    background: #f0f0f0;
+    color: rgba(0,0,0,.35);
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 16px;
+}
+
+.ev-msg {
+    margin-left: auto;
+    font-size: 11px;
+    color: rgba(0,0,0,.3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+.progress-tip {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: rgba(24,144,255,.04);
+    border: 1px solid rgba(24,144,255,.1);
+    border-radius: 8px;
+    font-size: 12px;
+    color: #1890ff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.field-row {
+    margin-bottom: 12px;
+}
+
+.field-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 6px;
+}
+
+.field-hint {
+    display: block;
+    font-size: 11px;
+    color: rgba(0,0,0,.3);
+    margin-top: 4px;
+}
+
+.step-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: auto;
+}
+
+.step-next {
+    margin-top: 16px;
+    text-align: center;
+}
+
+.step-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+    gap: 12px;
+}
+
+.nav-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+}
+
+.nav-card {
+    padding: 14px;
+    background: rgba(0,0,0,.02);
+    border: 1px solid rgba(0,0,0,.04);
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.nav-card:hover {
+    border-color: rgba(24,144,255,.2);
+    background: rgba(24,144,255,.02);
+}
+
+.nc-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-bottom: 8px;
+}
+
+.nc-title {
+    margin: 0 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.nc-desc {
+    margin: 0 0 8px;
+    font-size: 11px;
+    color: rgba(0,0,0,.35);
+    line-height: 1.4;
+}
 </style>

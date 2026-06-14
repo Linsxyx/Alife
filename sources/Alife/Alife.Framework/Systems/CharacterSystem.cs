@@ -60,6 +60,18 @@ public class CharacterSystem
         string json = File.ReadAllText(Path.Combine(AlifePath.StorageFolderPath, "Character", character.Name, "index.json"));
         JsonConvert.PopulateObject(json, character);
     }
+    public void RefreshCharacters()
+    {
+        characters.Clear();
+        string[] folder = storageSystem.GetFolders("Character");
+        foreach (string name in folder)
+        {
+            Character? character = LoadCharacter(name);
+            if (character != null)
+                characters.Add(character);
+        }
+        OnChanged?.Invoke();
+    }
 
     readonly StorageSystem storageSystem;
     readonly List<Character> characters;

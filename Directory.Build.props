@@ -17,6 +17,7 @@
 
     <SelfContained>false</SelfContained>
     <PublishSelfContained>false</PublishSelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <GenerateMvcApplicationPartsAssemblyAttributes>false</GenerateMvcApplicationPartsAssemblyAttributes>
   </PropertyGroup>
 </Project>

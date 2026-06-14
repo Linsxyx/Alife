@@ -8,6 +8,7 @@ using System.Runtime.Loader;
 using Alife.Platform;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.Extensions.Logging;
 
 namespace Alife.Framework;
 
@@ -233,6 +234,7 @@ public class ModuleSystem
     readonly StorageSystem storageSystem;
     readonly Dictionary<string, Type> moduleTypes;
     readonly StringFolder moduleFolder;
+    readonly ILogger<ModuleSystem> logger;
 
     readonly HashSet<string> defaultAssemblies;
     readonly Assembly[] alifeAssemblies;
@@ -241,9 +243,10 @@ public class ModuleSystem
     string[] managedExtraDirectories = [];
     string[] unmanagedExtraDirectories = [];
 
-    public ModuleSystem(StorageSystem storageSystem)
+    public ModuleSystem(StorageSystem storageSystem, ILogger<ModuleSystem> logger)
     {
         this.storageSystem = storageSystem;
+        this.logger = logger;
 
         moduleTypes = new Dictionary<string, Type>();
         moduleFolder = storageSystem.GetObject(moduleSystemConfig, new StringFolder("全部模块"))!;
@@ -293,7 +296,18 @@ public class ModuleSystem
         //统计Module
         foreach (Assembly assembly in moduleAssemblies.Assemblies.Union(alifeAssemblies))
         {
-            foreach (Type type in assembly.GetTypes())
+            Type[] types;
+            try
+            {
+                types = assembly.GetTypes();
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "程序集类型获取失败");
+                continue;
+            }
+
+            foreach (Type type in types)
             {
                 if (type.GetCustomAttribute<ModuleAttribute>() == null)
                     continue;

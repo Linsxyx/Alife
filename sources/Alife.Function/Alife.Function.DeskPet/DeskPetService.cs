@@ -136,22 +136,18 @@ public class DeskPetService(XmlFunctionCaller functionService) : InteractiveModu
         string supportedMotionsDescription = string.Join(", ", client.SupportedMotions.Keys);
         if (string.IsNullOrEmpty(supportedMotionsDescription)) supportedMotionsDescription = $"当前不支持<{nameof(Motion)}>功能";
 
-        XmlHandler xmlHandler = new(this);
-        functionService.RegisterHandlerWithoutDocument(xmlHandler);
+        XmlHandler xmlHandler = new(this) {
+            Description = "此服务让你获得一副交互性的Live2D身体。这是你主要的对外输出表情动作等外观信息的工具，需要积极使用。",
+            Explanation = $"""
+                           ## 支持选项
+                           - 支持的 {nameof(Expression)} 选项：{supportedExpressionsDescription}
+                           - 支持的 {nameof(Motion)} 选项：{supportedMotionsDescription}
 
-        Prompt($"""
-                此服务让你获得一副交互性的Live2D身体。这是你主要的对外输出表情动作等外观信息的工具，需要积极使用。
-
-                ## 支持工具
-                {xmlHandler.FunctionDocument()}
-
-                ## 工具选项
-                - 支持的 {nameof(Expression)} 选项：{supportedExpressionsDescription}
-                - 支持的 {nameof(Motion)} 选项：{supportedMotionsDescription}
-
-                ## 其他信息
-                - 当前屏幕分辨率：{AlifePlatform.GetResolution()}
-                """);
+                           ## 其他信息
+                           - 当前屏幕分辨率：{AlifePlatform.GetResolution()}
+                           """
+        };
+        functionService.RegisterHandler(xmlHandler, DocumentMode.Explicit);
     }
 
     public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)

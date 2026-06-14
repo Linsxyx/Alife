@@ -1,4 +1,7 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@inject CharacterSystem CharacterSystem
+@inject NavigationManager Navigation
 
 <div class="app-container">
     <!-- 第一层 Sider: 全局主导航 -->
@@ -15,3 +18,34 @@
 <CharacterLoadingOverlay/>
 <UpdateNotificationOverlay/>
 <AntContainer/>
+
+@code {
+    bool _redirected;
+
+    protected override void OnInitialized()
+    {
+        TryRedirect();
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        TryRedirect();
+    }
+
+    void TryRedirect()
+    {
+        if (_redirected) return;
+        bool onWelcome = new Uri(Navigation.Uri).AbsolutePath is "/" or "/welcome";
+        if (onWelcome && CharacterSystem.GetAllCharacters().Count > 0)
+        {
+            _redirected = true;
+            Navigation.NavigateTo("/system");
+        }
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}

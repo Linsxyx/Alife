@@ -43,7 +43,7 @@
 @code {
     void OpenModelFolder()
     {
-        string folder = Path.Combine(AlifePath.OutputsFolderPath, "Alife.DeskPet.Client", "wwwroot", "model");
+        string folder = Path.Combine(AppContext.BaseDirectory, "Alife.DeskPet.Client", "wwwroot", "model");
         if (Directory.Exists(folder))
             Process.Start("explorer.exe", $"\"{folder}\"");
     }

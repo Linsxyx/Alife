@@ -22,7 +22,7 @@ public record QChatConfig
     public int AutoReconnectSeconds { get; set; } = 60;//自动尝试重连的间隔（秒）
     public long BotId { get; set; }
     public long OwnerId { get; set; }
-    public string AppendChatPrompt { get; set; } = "QQ消息必须极简回复（0-20字）来保证自然感，同时群聊消息要选择性忽略，避免刷屏。此外注意分清语境，群聊环境人声嘈杂，不要回复与自己无关的内容，回复时请加上CQat标签";
+    public string AppendChatPrompt { get; set; } = "QQ消息必须极简回复（0-20字）来保证自然感，同时群聊消息要选择性忽略，避免刷屏。此外注意分清语境，群聊环境人声嘈杂，不要回复与自己无关的内容，回复时请使用CQ码功能指定回复人";
     //群监听唤醒
     public string IgnoredGroup { get; set; } = "";//完全屏蔽消息的群，不会收到这些群的任何信息
     public string WakingWords { get; set; } = "";//原始群消息中触发开启群消息监听的唤醒词，以逗号分隔
@@ -290,9 +290,6 @@ public class QChatService(XmlFunctionCaller functionService, ILogger<QChatServic
             Description = "当前需要使用QQ通讯或者要处理QQ消息时，请调用该函数。",
             Explanation = $"""
                            QQ工具使用指南
-
-                           ## 提供函数
-                           {xmlHandler.FunctionDocument()}
 
                            ## 关键信息
                            - 你的 QQ: {(Configuration!.BotId == 0 ? "未设置" : Configuration.BotId)}（如果有人At该QQ，代表专门找你说话）

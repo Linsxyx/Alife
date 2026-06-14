@@ -61,6 +61,7 @@ public partial class App
         services.AddSingleton<ChatActivitySystem>();
         services.AddSingleton<ChatMessageService>();
         services.AddSingleton<PluginMarketService>();
+        services.AddSingleton<EnvironmentChecker>();
         services.AddSingleton<MainWindow>();
         ServiceProvider = services.BuildServiceProvider();
 

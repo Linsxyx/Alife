@@ -50,7 +50,7 @@ public class VisionService(XmlFunctionCaller functionService, IVisionModel? visi
     /// </summary>
     [XmlFunction(FunctionMode.OneShot)]
     [Description("(使用后需等待结果返回)")]
-    public async Task LookWindow(long hwnd, string prompt, int replyLength = 64)
+    public async Task LookWindow(long hwnd, string prompt, int replyCharCount = 64)
     {
         if (AlifePlatform.IsLocking())
         {

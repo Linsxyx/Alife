@@ -1,3 +1,4 @@
+@using System.Reflection
 @inject INotificationService NotificationService
 
 <div style="padding: 24px; height: 100%; overflow-y: auto;">
@@ -6,9 +7,8 @@
     <div style="margin-bottom: 24px;">
         <Text Strong Style="margin-bottom: 8px; display: block;">数据存储目录 (Storage)</Text>
         <div style="display: flex; gap: 8px; align-items: center;">
-            <Input @bind-Value="storageFolderPath" Style="flex: 1;"/>
+            <Input @bind-Value="storageFolderPath" Style="flex: 1;" ReadOnly/>
             <Button Icon="@IconType.Outline.FolderOpen" OnClick="@OnPickStorageFolderAsync"/>
-            <Button Type="@ButtonType.Primary" OnClick="@SaveStoragePath">保存</Button>
         </div>
         <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
             存放角色数据、对话记录等用户数据。重启后生效。
@@ -18,14 +18,22 @@
     <div style="margin-bottom: 24px;">
         <Text Strong Style="margin-bottom: 8px; display: block;">运行时目录 (Runtime)</Text>
         <div style="display: flex; gap: 8px; align-items: center;">
-            <Input @bind-Value="runtimeFolderPath" Style="flex: 1;"/>
+            <Input @bind-Value="runtimeFolderPath" Style="flex: 1;" ReadOnly/>
             <Button Icon="@IconType.Outline.FolderOpen" OnClick="@OnPickRuntimeFolderAsync"/>
-            <Button Type="@ButtonType.Primary" OnClick="@SaveRuntimePath">保存</Button>
         </div>
         <Text Type="@TextElementType.Secondary" Style="font-size: 12px; margin-top: 4px; display: block;">
             存放浏览器数据、模型文件等运行时数据。重启后生效。
         </Text>
     </div>
+
+    <Divider Style="margin: 16px 0;"/>
+
+    <Title Level="5" Style="margin-bottom: 12px;">版本信息</Title>
+    <Descriptions Column="1" Size="@DescriptionsSize.Small" Bordered>
+        <DescriptionsItem Title="当前版本">
+            <Text Code Style="font-size: 12px;">v@(Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "0.0.0")</Text>
+        </DescriptionsItem>
+    </Descriptions>
 
     <Divider Style="margin: 16px 0;"/>
 
@@ -36,12 +44,6 @@
         </DescriptionsItem>
         <DescriptionsItem Title="RuntimeFolderPath">
             <Text Code Style="font-size: 12px;">@Platform.AlifePath.RuntimeFolderPath</Text>
-        </DescriptionsItem>
-        <DescriptionsItem Title="OutputsFolderPath">
-            <Text Code Style="font-size: 12px;">@Platform.AlifePath.OutputsFolderPath</Text>
-        </DescriptionsItem>
-        <DescriptionsItem Title="RootFolderPath">
-            <Text Code Style="font-size: 12px;">@Platform.AlifePath.RootFolderPath</Text>
         </DescriptionsItem>
         <DescriptionsItem Title="TempFolderPath">
             <Text Code Style="font-size: 12px;">@Platform.AlifePath.TempFolderPath</Text>
@@ -57,33 +59,21 @@
     {
         string? result = await Platform.AlifePlatform.PickFolderAsync();
         if (string.IsNullOrWhiteSpace(result) is false)
+        {
             storageFolderPath = result;
-    }
-
-    void SaveStoragePath()
-    {
-        if (string.IsNullOrWhiteSpace(storageFolderPath))
-            return;
-
-        Platform.AlifePath.SetStorageFolderPath(storageFolderPath);
-        storageFolderPath = Platform.AlifePath.StorageFolderPath;
-        _ = NotificationService.Success(new NotificationConfig { Message = "存储路径已保存！重启后生效喵~" });
+            Platform.AlifePath.SetStorageFolderPath(storageFolderPath);
+            _ = NotificationService.Success(new NotificationConfig { Message = "存储路径已保存！重启后生效喵~" });
+        }
     }
 
     async Task OnPickRuntimeFolderAsync()
     {
         string? result = await Platform.AlifePlatform.PickFolderAsync();
         if (string.IsNullOrWhiteSpace(result) is false)
+        {
             runtimeFolderPath = result;
-    }
-
-    void SaveRuntimePath()
-    {
-        if (string.IsNullOrWhiteSpace(runtimeFolderPath))
-            return;
-
-        Platform.AlifePath.SetRuntimeFolderPath(runtimeFolderPath);
-        runtimeFolderPath = Platform.AlifePath.RuntimeFolderPath;
-        _ = NotificationService.Success(new NotificationConfig { Message = "运行时目录已保存！重启后生效喵~" });
+            Platform.AlifePath.SetRuntimeFolderPath(runtimeFolderPath);
+            _ = NotificationService.Success(new NotificationConfig { Message = "运行时目录已保存！重启后生效喵~" });
+        }
     }
 }

@@ -13,10 +13,10 @@
 
                 <div style="margin-bottom: 8px; font-weight: 500;">错误信息：@(Value.Message)</div>
 
-                @if (hasInnerException)
+                @if (finalException != null)
                 {
                     <div style="margin-bottom: 8px; color: #820014;">
-                        内部原因：@(finalException!.Message)
+                        内部原因：@(finalException.Message)
                     </div>
                 }
 
@@ -28,7 +28,7 @@
                         border-radius: 4px;
                         white-space: pre-wrap;
                         margin-top: 8px;">
-                    @(Value.StackTrace)
+                    @(finalException != null ? finalException.StackTrace : Value.StackTrace)
                 </pre>
             </div>
         }
@@ -47,16 +47,11 @@
     [Parameter] public string Title { get; set; } = "操作失败喵！";
 
     Exception? finalException;
-    bool hasInnerException;
 
     protected override void OnParametersSet()
     {
-        finalException = Value;
-        hasInnerException = false;
+        finalException = Value?.InnerException;
         while (finalException?.InnerException != null)
-        {
             finalException = finalException.InnerException;
-            hasInnerException = true;
-        }
     }
 }

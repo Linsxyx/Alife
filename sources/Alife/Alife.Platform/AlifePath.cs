@@ -4,8 +4,6 @@ namespace Alife.Platform;
 
 public static class AlifePath
 {
-    public static string RootFolderPath { get; private set; }
-    public static string OutputsFolderPath { get; }
     public static string StorageFolderPath { get; private set; }
     public static string RuntimeFolderPath { get; private set; }
     public static string TempFolderPath { get; }
@@ -53,14 +51,12 @@ public static class AlifePath
 
     static AlifePath()
     {
-        OutputsFolderPath = Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar))!;
-        RootFolderPath = Path.GetDirectoryName(OutputsFolderPath)!;
         string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         StorageFolderPath = Path.Combine(documentsPath, "Alife", "Storage");
         RuntimeFolderPath = Path.Combine(documentsPath, "Alife", "Runtime");
         TempFolderPath = Path.Combine(Path.GetTempPath(), "Alife.Client");
 
-        AlifeConfig.Initialize(Path.Combine(RootFolderPath, "alife_config.json"));
+        AlifeConfig.Initialize();
 
         string configRuntime = AlifeConfig.GetString("runtime_path");
         if (!string.IsNullOrEmpty(configRuntime))

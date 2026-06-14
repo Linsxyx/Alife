@@ -76,8 +76,8 @@ public class SystemEventService(XmlFunctionCaller functionService)
         await base.AwakeAsync(context);
 
         XmlHandler xmlHandler = new(this) {
-            Explanation = "当你需要主动控制你的日程，想保持活跃时，请使用该函数。",
-            Description = $"""
+            Description = "当你需要主动控制你的日程，想保持活跃时，请使用该函数。",
+            Explanation = $"""
                            ## 为什么需要报点事件？
                            由于llm的性质，导致你只能在被动收到消息后才能进行活动，一旦消息类断开，你将一直陷入沉默。这种表现效果肯定不好，所以需要自动化的事件系统来主动激活，这样你才有自主行动的机会。
 
