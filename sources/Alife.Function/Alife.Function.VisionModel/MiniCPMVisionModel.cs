@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.PythonPipe;
 using Alife.Platform;
+using Alife.Function.AIModelUtility;
 using Microsoft.Extensions.Logging;
 
 namespace Alife.Function.Vision;
@@ -103,7 +104,7 @@ public class MiniCPMVisionModel(
     public async Task AwakeAsync(AwakeContext context)
     {
         const string ModelId = "OpenBMB/MiniCPM-V-4.6";
-        string modelPath = AlifeModel.EnsureModelExisting(ModelId);
+        string modelPath = Alife.Function.AIModelUtility.AIModelUtility.EnsureModelExisting(ModelId);
         string precision = Configuration?.Precision ?? "int4";
         pythonPipe = new("minicpm_v", pythonCode);
         pythonPipe.OnStderr += line => logger.LogWarning(line);

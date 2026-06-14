@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Alife.Framework;
 using Alife.Function.PythonPipe;
 using Alife.Platform;
+using Alife.Function.AIModelUtility;
 using Microsoft.Extensions.Logging;
 
 namespace Alife.Function.Vision;
@@ -109,7 +110,7 @@ public class QwenVisionModel(
     public async Task AwakeAsync(AwakeContext context)
     {
         const string ModelId = "Qwen/Qwen2.5-VL-3B-Instruct";
-        string modelPath = AlifeModel.EnsureModelExisting(ModelId);
+        string modelPath = Alife.Function.AIModelUtility.AIModelUtility.EnsureModelExisting(ModelId);
         pythonPipe = new("qwen_vl", pythonCode);
         pythonPipe.OnStderr += line => logger.LogWarning(line);
         await pythonPipe.StartAsync();

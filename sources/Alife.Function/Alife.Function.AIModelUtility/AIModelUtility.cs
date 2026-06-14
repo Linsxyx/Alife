@@ -1,12 +1,14 @@
+using System;
 using System.IO;
+using Alife.Platform;
 
-namespace Alife.Platform;
+namespace Alife.Function.AIModelUtility;
 
 /// <summary>
 /// 通用的模型与资源下载引导器。
 /// 负责检测文件完整性并调用独立的 WPF 下载器窗口。
 /// </summary>
-public static class AlifeModel
+public static class AIModelUtility
 {
     public static string EnsureModelExisting(string modelId, string? targetFile = null)
     {
@@ -24,10 +26,8 @@ public static class AlifeModel
 
     public static string ModelScopeModelPath { get; }
 
-    static AlifeModel()
+    static AIModelUtility()
     {
-        AlifePlatform.Command("python", "-m pip install modelscope");
-
         string modelScopeCachePath = Environment.GetEnvironmentVariable("MODELSCOPE_CACHE") ??
                                      Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "modelscope", "hub");
         ModelScopeModelPath = Path.Combine(modelScopeCachePath, "models").Replace(Path.DirectorySeparatorChar, '/');

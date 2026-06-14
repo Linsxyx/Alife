@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using SherpaOnnx;
 using Alife.Framework;
-using Alife.Platform;
+using Alife.Function.AIModelUtility;
 
 namespace Alife.Function.Speech;
 
@@ -18,8 +18,8 @@ public class SenseVoiceAuditoryModel :
     {
         get
         {
-            string senseVoicePath = Path.Combine(AlifeModel.ModelScopeModelPath, SenseVoiceId.Replace(".", "___"));
-            string vadPath = Path.Combine(AlifeModel.ModelScopeModelPath, VadId.Replace(".", "___"));
+            string senseVoicePath = Path.Combine(Alife.Function.AIModelUtility.AIModelUtility.ModelScopeModelPath, SenseVoiceId.Replace(".", "___"));
+            string vadPath = Path.Combine(Alife.Function.AIModelUtility.AIModelUtility.ModelScopeModelPath, VadId.Replace(".", "___"));
             return File.Exists(Path.Combine(senseVoicePath, "model.int8.onnx"))
                    && File.Exists(Path.Combine(vadPath, "silero_vad.onnx"));
         }
@@ -65,8 +65,8 @@ public class SenseVoiceAuditoryModel :
 
     public SenseVoiceAuditoryModel()
     {
-        string senseVoicePath = AlifeModel.EnsureModelExisting(SenseVoiceId);
-        string vadModelPath = AlifeModel.EnsureModelExisting(VadId, "silero_vad.onnx");
+        string senseVoicePath = Alife.Function.AIModelUtility.AIModelUtility.EnsureModelExisting(SenseVoiceId);
+        string vadModelPath = Alife.Function.AIModelUtility.AIModelUtility.EnsureModelExisting(VadId, "silero_vad.onnx");
 
         OfflineRecognizerConfig config = new();
         config.ModelConfig.SenseVoice.Model = Path.Combine(senseVoicePath, "model.int8.onnx");
