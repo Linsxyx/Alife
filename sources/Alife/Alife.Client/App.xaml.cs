@@ -36,14 +36,14 @@ public partial class App
         Console.WriteLine(typeof(Function.Python.PythonService).Assembly);
         Console.WriteLine(typeof(Function.Vision.VisionService).Assembly);
 
-        Console.WriteLine(typeof(Function.Speech.AuditoryService).Assembly);
+        Console.WriteLine(typeof(Function.Auditory.AuditoryService).Assembly);
         Console.WriteLine(typeof(Function.DeskPet.DeskPetService).Assembly);
         Console.WriteLine(typeof(Function.QChat.QChatService).Assembly);
         Console.WriteLine(typeof(Function.Speech.SpeechService).Assembly);
 
-        Console.WriteLine(typeof(Function.Speech.IAuditoryModel).Assembly);
-        Console.WriteLine(typeof(Function.Speech.ISpeechModel).Assembly);
-        Console.WriteLine(typeof(Function.Vision.IVisionModel).Assembly);
+        Console.WriteLine(typeof(Function.Auditory.SenseVoice.SenseVoiceAuditoryModel).Assembly);
+        Console.WriteLine(typeof(Function.Speech.VITS.VitsSpeechModel).Assembly);
+        Console.WriteLine(typeof(Function.Vision.MiniCPM.MiniCPMVisionModel).Assembly);
 #endif
 
         ServiceCollection services = new();
@@ -55,7 +55,7 @@ public partial class App
         // logger 库
         services.AddLogging(builder => {
             builder.AddConsole();
-            builder.AddFile(Path.Combine(Alife.Platform.AlifePath.RuntimeFolderPath, "Logs"), "app");
+            builder.AddFile(Path.Combine(AlifePath.RuntimeFolderPath, "Logs"), "app");
             builder.SetMinimumLevel(LogLevel.Information);
         });
         // Alife.Client 核心业务系统

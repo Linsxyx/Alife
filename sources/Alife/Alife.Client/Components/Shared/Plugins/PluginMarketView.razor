@@ -110,6 +110,7 @@
 </Modal>
 
 @code {
+    static bool hasFetched;
     string viewMode = "all";
     string searchText = "";
     string sourceUrl = "";
@@ -130,6 +131,27 @@
         PluginMarketService.OnInstalled += OnPluginsChanged;
         sourceUrl = PluginMarketService.SourceUrl;
         RefreshLocal();
+    }
+
+    protected override async void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender || hasFetched) return;
+        hasFetched = true;
+
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            await PluginMarketService.FetchOnlinePluginsAsync();
+            RefreshLocal();
+        }
+        catch
+        {
+            // 首次拉取失败不影响正常使用
+        }
+
+        isLoading = false;
         StateHasChanged();
     }
 

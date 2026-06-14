@@ -97,15 +97,17 @@ public class XmlFunctionCaller(ILogger<XmlFunctionCaller> logger) : InteractiveM
     }
     void AddImplicitTrigger(XmlHandler source)
     {
-        XmlHandler xmlHandler = new XmlHandler();
-        xmlHandler.Name = source.Name + "_Trigger";
+        XmlHandler xmlHandler = new() {
+            Name = source.Name + "_Trigger"
+        };
         xmlHandler.Functions.Add(new XmlFunction() {
-            Name = source.Name!,
+            Name = source.Name!.ToLower(),
             Invoker = (context, token) => {
                 Poke(GetExplicitDocument(source));
                 return Task.CompletedTask;
             }
         });
+        handlerTable.Register(xmlHandler);
     }
 
     public override async Task StartAsync(Kernel kernel, ChatActivity chatActivity)
@@ -157,11 +159,11 @@ public class XmlFunctionCaller(ILogger<XmlFunctionCaller> logger) : InteractiveM
 
                 ### 隐式服务
 
-                有些服务是渐进式加载的，你需要显式阅读他们文档，来学习如何使用。读取隐射服务的文档非常简单，直接输出xml来调用如下标签即可：
+                有些服务是渐进式加载的，你需要显式阅读他们文档，来学习如何使用。读取隐式服务的文档非常简单，直接输出xml来调用如下标签即可：
 
                 {string.Join("\n", implicitHandlers.Select(GetImplicitDocument))}
 
-                上面这些标签都是开启隐射服务的入口，你要根据实际情况，积极的去调用他们，有很多你需要的功能可能就藏在其中。
+                上面这些标签都是开启隐式服务的入口，你要根据实际情况，积极的去调用他们，有很多你需要的功能可能就藏在其中。
                 """);
     }
     public override async Task DestroyAsync()

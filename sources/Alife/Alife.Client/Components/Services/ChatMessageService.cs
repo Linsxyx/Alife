@@ -4,7 +4,7 @@ namespace Alife.Components.Services;
 
 public class ChatSettings
 {
-    public string UserTag { get; set; } = "[管理员]";
+    public string UserTag { get; set; } = "";
     public int MaxMessageCount { get; set; } = 200;
 }
 
