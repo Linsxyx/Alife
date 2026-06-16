@@ -97,13 +97,22 @@
     {
         if (ChatActivity != null && ChatActivity.ModuleService.TryResolve(ModuleType, out object? instance))
             Module = instance;
+        else
+        {
+            Module = null;
+        }
+
         isConfigurable = ConfigurationSystem.CanConfiguration(ModuleType);
         LoadConfiguration();
     }
 
     void LoadConfiguration()
     {
-        if (isConfigurable == false) return;
+        if (isConfigurable == false)
+        {
+            configuration = null;
+            return;
+        }
 
         // 从 ConfigurationSystem 加载并深拷贝，避免编辑直接影响运行时
         object? raw = ConfigurationSystem.GetConfiguration(ModuleType, Character?.StorageKey ?? "");

@@ -19,8 +19,6 @@ public partial class App
         Console.OutputEncoding = Encoding.UTF8;
         Console.InputEncoding = Encoding.UTF8;
 
-        EnvironmentChecker.SetupEnvironmentPaths();
-
 #if DEBUG
         Console.WriteLine(typeof(Function.Memory.MemoryService).Assembly.FullName);
         Console.WriteLine(typeof(Function.MessageFilter.MessageFilterService).Assembly);
@@ -41,9 +39,14 @@ public partial class App
         Console.WriteLine(typeof(Function.QChat.QChatService).Assembly);
         Console.WriteLine(typeof(Function.Speech.SpeechService).Assembly);
 
+        Console.WriteLine(typeof(Function.AIModelUtility.AIModelUtility).Assembly);
         Console.WriteLine(typeof(Function.Auditory.SenseVoice.SenseVoiceAuditoryModel).Assembly);
+        Console.WriteLine(typeof(Function.Speech.EdgeTTS.EdgeSpeechModel).Assembly);
+        Console.WriteLine(typeof(Function.Speech.Genie.GenieSpeechModel).Assembly);
         Console.WriteLine(typeof(Function.Speech.VITS.VitsSpeechModel).Assembly);
         Console.WriteLine(typeof(Function.Vision.MiniCPM.MiniCPMVisionModel).Assembly);
+        Console.WriteLine(typeof(Function.Vision.OpenAI.OpenAIVisionModel).Assembly);
+        Console.WriteLine(typeof(Function.Vision.Qwen.QwenVisionModel).Assembly);
 #endif
 
         ServiceCollection services = new();
@@ -70,6 +73,7 @@ public partial class App
         services.AddSingleton<MainWindow>();
         ServiceProvider = services.BuildServiceProvider();
 
+        EnvironmentChecker.SetupEnvironmentPaths();
         ServiceProvider.GetRequiredService<ChatMessageService>();
         ServiceProvider.GetRequiredService<PluginMarketService>();
         ServiceProvider.GetRequiredService<MainWindow>().Show();

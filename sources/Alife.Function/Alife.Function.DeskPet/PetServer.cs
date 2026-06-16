@@ -33,7 +33,7 @@ public class PetServer : IAsyncDisposable
         nativeProcess = new Process {
             StartInfo = new ProcessStartInfo {
                 FileName = petExePath,
-                Arguments = modelJsonPath,
+                Arguments = $"\"{modelJsonPath}\"",
                 UseShellExecute = false,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,

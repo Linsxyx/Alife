@@ -59,8 +59,12 @@ public static class AlifePath
         RootFolderPath = Path.GetDirectoryName(OutputsFolderPath)!;
 
         string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        StorageFolderPath = Path.Combine(documentsPath, "Alife", "Storage");
-        RuntimeFolderPath = Path.Combine(documentsPath, "Alife", "Runtime");
+        StorageFolderPath = Directory.Exists(Path.Combine(RootFolderPath, "Storage"))
+            ? Path.Combine(RootFolderPath, "Storage")
+            : Path.Combine(documentsPath, "Alife", "Storage");
+        RuntimeFolderPath = Directory.Exists(Path.Combine(RootFolderPath, "Runtime"))
+            ? Path.Combine(RootFolderPath, "Runtime")
+            : Path.Combine(documentsPath, "Alife", "Runtime");
         TempFolderPath = Path.Combine(Path.GetTempPath(), "Alife.Client");
 
         string configRuntime = AlifeConfig.GetString("runtime_path");

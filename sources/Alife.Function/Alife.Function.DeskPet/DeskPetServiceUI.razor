@@ -4,6 +4,7 @@
 @using AntDesign
 @using Alife.Framework
 @using Alife.Platform
+@using static Alife.Platform.AlifePath
 @inherits ModuleUIBase<DeskPetService, DeskPetServiceConfig>
 
 <div style="background: #fafafa; padding: 24px; border-radius: 12px; border: 1px solid #f0f0f0;">
@@ -43,7 +44,7 @@
 @code {
     void OpenModelFolder()
     {
-        string folder = Path.Combine(AppContext.BaseDirectory, "Alife.DeskPet.Client", "wwwroot", "model");
+        string folder = Path.Combine(RuntimeFolderPath, "Alife.DeskPet.Client", "wwwroot", "model");
         if (Directory.Exists(folder))
             Process.Start("explorer.exe", $"\"{folder}\"");
     }

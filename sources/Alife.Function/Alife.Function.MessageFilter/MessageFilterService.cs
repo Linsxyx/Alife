@@ -8,9 +8,9 @@ namespace Alife.Function.MessageFilter;
 public class MessageFilterData
 {
     public bool EnableTimestamp { get; set; } = true;
-    public string MessageAppend { get; set; } = "(回复消息时保持简洁，禁用旁白、emoji)";
+    public string MessageAppend { get; set; } = "(注意！处理消息时必须根据消息来源选用正确的标签，如果遇到特殊消息类型，一定要先查文档再回复，不要随便回复。回复时要保持发言简洁，禁用旁白、emoji，但允许也建议多用系统支持的图片动作表情等)";
     public string PokeAppend { get; set; } = "";
-    public int MaxMessageLength { get; set; } = 10000;
+    public int MaxMessageLength { get; set; } = 8000;
 }
 
 [Module("消息过滤", "统一管理消息的提示词注入和格式化。负责添加时间戳、通用提示词以及系统消息头。",
@@ -35,21 +35,21 @@ public class MessageFilterService : InteractiveModule<MessageFilterService>, ICo
 
     string OnChatSend(string message)
     {
-        string result = $"{message}{Configuration?.MessageAppend}";
-        if (Configuration?.EnableTimestamp == true)
-            result = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}]{result}";
-
-        if (result.Length > Configuration!.MaxMessageLength)
+        if (message.Length > Configuration!.MaxMessageLength)
         {
-            result = result.Substring(0, Configuration!.MaxMessageLength);
-            result += $"(文本过长，超过 {Configuration?.MaxMessageLength} 的部分已截断)";
+            message = message.Substring(0, Configuration!.MaxMessageLength);
+            message += $"(文本过长，超过 {Configuration?.MaxMessageLength} 的部分已截断，请注意调整信息读取方式)";
         }
 
-        return result;
+        if (Configuration?.EnableTimestamp == true)
+            message = $"当前时间:[{DateTime.Now:yyyy-MM-dd HH:mm:ss}]\n{message}";
+        message = $"{message}\n{Configuration?.MessageAppend}";
+
+        return message;
     }
 
     string OnPokeSend(string message)
     {
-        return $"{message}{Configuration?.PokeAppend}";
+        return $"{message}\n{Configuration?.PokeAppend}";
     }
 }

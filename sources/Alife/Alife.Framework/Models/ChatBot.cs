@@ -184,7 +184,7 @@ public class ChatBot : IAsyncDisposable
     {
         while (messageCache.Count > 11)
             messageCache.TryDequeue(out _);
-        messageCache.Enqueue($"{message}\n");
+        messageCache.Enqueue(message);
         lastAutoFlushTime = 0;//重新计时，防止后续还有Poke
     }
 
@@ -279,7 +279,7 @@ public class ChatBot : IAsyncDisposable
             StringBuilder stringBuilder = new();
             foreach (string message in messageCache.Distinct())
                 stringBuilder.AppendLine(message);
-            string poke = stringBuilder.ToString();
+            string poke = stringBuilder.ToString().Trim();
             messageCache.Clear();
 
             if (PokeSend != null)

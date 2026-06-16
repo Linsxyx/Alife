@@ -22,7 +22,7 @@ public record QChatConfig
     public int AutoReconnectSeconds { get; set; } = 60;//自动尝试重连的间隔（秒）
     public long BotId { get; set; }
     public long OwnerId { get; set; }
-    public string AppendChatPrompt { get; set; } = "QQ消息必须极简回复（0-20字）来保证自然感，同时群聊消息要选择性忽略，避免刷屏。此外注意分清语境，群聊环境人声嘈杂，不要回复与自己无关的内容，回复时请使用CQ码功能指定回复人";
+    public string AppendChatPrompt { get; set; } = "注意！如果回复QQ消息，必须保持极简的文本（0-20字）来保证自然感。同时群聊消息要选择性忽略，避免刷屏。此外注意分清语境，群聊环境人声嘈杂，不要回复与自己无关的内容，回复时请使用CQ码功能指定回复人。";
     //群监听唤醒
     public string IgnoredGroup { get; set; } = "";//完全屏蔽消息的群，不会收到这些群的任何信息
     public string WakingWords { get; set; } = "";//原始群消息中触发开启群消息监听的唤醒词，以逗号分隔
@@ -218,14 +218,6 @@ public class QChatService(XmlFunctionCaller functionService, ILogger<QChatServic
         oneBotClient.Token = Configuration.Token;
         await oneBotClient.ConnectAsync();
     }
-    protected override string ChatTextFilter(string text)
-    {
-        return $"""
-                {base.ChatTextFilter(text)}
-                ({Configuration?.AppendChatPrompt})
-                (这是QQ消息，请用QQ工具处理)
-                """;
-    }
 
     public QChatConfig? Configuration
     {
@@ -256,6 +248,9 @@ public class QChatService(XmlFunctionCaller functionService, ILogger<QChatServic
     public override async Task AwakeAsync(AwakeContext context)
     {
         await base.AwakeAsync(context);
+
+        if (Configuration!.OwnerId == 0 || Configuration!.BotId == 0)
+            throw new Exception("你的QQ插件没有配置AI和主人的QQ号，请先去功能页配置！");
 
         //加载基本环境
         oneBotClient = new OneBotClient(Configuration!.Url, Configuration.Token);
@@ -309,6 +304,9 @@ public class QChatService(XmlFunctionCaller functionService, ILogger<QChatServic
                            {emoteInfo}
 
                            你的表情库存储路径在 {emoteBase}，你也可以在其中存储自己的表情。直接存储在根目录将作为独立表情，存储到子文件夹，则作为分类。
+
+                           ## 聊天规则要求
+                           {Configuration?.AppendChatPrompt}
                            """
         };
         functionService.RegisterHandler(xmlHandler, DocumentMode.Implicit);
@@ -397,7 +395,7 @@ public class QChatService(XmlFunctionCaller functionService, ILogger<QChatServic
             {
                 string speaker = pokeEvent.GetSpeakerTag();
                 string content = $"戳了戳 {pokeEvent.TargetId}";
-                string formatted = $"{speaker} {content}";
+                string formatted = $"{speaker}:{content}";
                 await HandleFormattedMessage(basicMessageEvent, formatted, pokeEvent.TargetId == configuration!.BotId);
             }
 
@@ -405,7 +403,7 @@ public class QChatService(XmlFunctionCaller functionService, ILogger<QChatServic
             {
                 string speaker = messageEvent.GetSpeakerTag();
                 string content = await messageEvent.GetReadableMessage(oneBotClient!);
-                string formatted = $"{speaker}：{content}";
+                string formatted = $"{speaker}:{content}";
                 bool isAwakening = messageEvent.GetAtID() == oneBotClient!.BotId ||
                                    groupAwakingWords.Any(word =>
                                        messageEvent.RawMessage.Contains(word, StringComparison.OrdinalIgnoreCase));
@@ -475,9 +473,9 @@ public class QChatService(XmlFunctionCaller functionService, ILogger<QChatServic
 
         string cachedMessage =
             $"""
-
              > 以下是群 {state.Tag} 的消息
              {string.Join("\n", state.MessageBuffer)}
+             <
              """;
 
         state.MessageBuffer.Clear();

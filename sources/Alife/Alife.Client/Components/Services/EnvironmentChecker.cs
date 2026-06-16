@@ -318,8 +318,8 @@ public class EnvironmentChecker
     {
         List<string> paths = new();
 
-        string pythonDir = Path.Combine(AlifePath.RuntimeFolderPath, "Python312");
-        if (Directory.Exists(pythonDir)) paths.Add(pythonDir);
+        string? pythonDir = FindPythonDir();
+        if (pythonDir != null) paths.Add(pythonDir);
 
         string dotnetDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet");
         if (Directory.Exists(dotnetDir)) paths.Add(dotnetDir);

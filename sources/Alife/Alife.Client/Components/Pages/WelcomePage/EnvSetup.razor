@@ -1,4 +1,6 @@
 @using Alife.Components.Services
+@using Alife.Platform
+@using System.IO
 @inject EnvironmentChecker EnvChecker
 
 <div class="step-content">
@@ -8,6 +10,19 @@
     <h2 class="step-title">配置运行环境</h2>
     <p class="step-desc">VC++、Python、.NET SDK（必需）及 CUDA（可选）</p>
     <p class="step-hint">安装依赖需要访问外网，请确保网络可用，且使用TUN模式</p>
+
+    @if (hasNonAsciiPath)
+    {
+        <div class="path-error">
+            <Icon Type="@IconType.Outline.CloseCircle" Style="color:#ff4d4f;"/>
+            <div>
+                <div style="font-weight:500;">检测到路径存在中文字符！</div>
+                <div style="font-size:11px;opacity:.7;margin-top:2px;">程序路径：@appPath</div>
+                <div style="font-size:11px;opacity:.7;">运行时路径：@runtimePath</div>
+                <div style="margin-top:4px;">请将程序移动到纯英文路径下运行，否则部分功能将无法正常使用！</div>
+            </div>
+        </div>
+    }
     
     <div class="env-grid">
         @RenderEnv("VC++ 运行库", EnvChecker.VCRedist)
@@ -43,6 +58,9 @@
 
     bool isCheckingEnv, isInstallingEnv, isInstallingCuda;
     string envProgressMsg = "";
+    bool hasNonAsciiPath;
+    string appPath = "";
+    string runtimePath = "";
     bool envAllReady =>
         EnvChecker.VCRedist.Status == EnvStatus.Ready
         && EnvChecker.Python.Status == EnvStatus.Ready
@@ -50,6 +68,9 @@
 
     protected override void OnInitialized()
     {
+        appPath = AppContext.BaseDirectory;
+        runtimePath = AlifePath.RuntimeFolderPath;
+        hasNonAsciiPath = appPath.Any(c => c > 127) || runtimePath.Any(c => c > 127);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -154,6 +175,7 @@
 .ev-tag { font-size: 10px; background: #f0f0f0; color: rgba(0,0,0,.35); padding: 2px 6px; border-radius: 4px; line-height: 16px; }
 .ev-msg { margin-left: auto; font-size: 11px; color: rgba(0,0,0,.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
 .progress-tip { margin-bottom: 12px; padding: 8px 12px; background: rgba(24,144,255,.04); border: 1px solid rgba(24,144,255,.1); border-radius: 8px; font-size: 12px; color: #1890ff; display: flex; align-items: center; gap: 6px; }
+.path-error { margin-bottom: 12px; padding: 10px 12px; background: #fff2f0; border: 1px solid #ffccc7; border-radius: 8px; font-size: 12px; color: #a8071a; display: flex; align-items: flex-start; gap: 8px; }
 .step-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
 .step-next { margin-top: 16px; text-align: center; }
 </style>

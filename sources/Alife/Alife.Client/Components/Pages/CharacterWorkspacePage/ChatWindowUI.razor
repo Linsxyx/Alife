@@ -9,10 +9,10 @@
     <Flex Justify="@FlexJustify.SpaceBetween" Align="@FlexAlign.Center"
           Style="padding: 8px 16px; background: rgba(0,0,0,0.02); border-bottom: 1px solid #f0f0f0;">
         <div style="display: flex; align-items: center; gap: 8px;">
-            <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">消息标签:</AntDesign.Text>
+            <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">消息前缀:</AntDesign.Text>
             <Input @bind-Value="ChatMessageService.MessageTag" Placeholder=""
                    Size="@InputSize.Small"
-                   Style="width: 100px; border-radius: 4px;"/>
+                   Style="width: 200px; border-radius: 4px;"/>
             <AntDesign.Text Type="@TextElementType.Secondary" Style="font-size: 12px;">最大条数:</AntDesign.Text>
             <AntDesign.InputNumber @bind-Value="ChatMessageService.MaxMessageCount" Min="10" Max="10000"
                                    Size="@InputSize.Small" Style="width: 80px; border-radius: 4px;"/>

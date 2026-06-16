@@ -68,7 +68,7 @@ public class InteractiveModule<T> : InteractiveModule
 {
     protected virtual string ChatTextFilter(string text)
     {
-        return $"[{typeof(T).Name}]{text}";
+        return $"消息来源:[{typeof(T).Name}]\n{text}";
     }
 
     protected void Prompt(string prompt)

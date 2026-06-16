@@ -23,7 +23,7 @@ public static class OneBotSegment
         string sayerLabel = basicMessage is OneBotMessageEvent messageEvent
             ? $"{basicMessage.UserId}({messageEvent.Sender?.Nickname})"
             : $"{basicMessage.UserId}";
-        return (basicMessage.GroupId == 0 ? "\n[私聊]" : "") + $"[{sayerLabel}]";
+        return (basicMessage.GroupId == 0 ? "[私聊]" : "") + $"[{sayerLabel}]";
     }
     public static string GetGroupTag(this OneBotBasicMessageEvent basicMessage)
     {

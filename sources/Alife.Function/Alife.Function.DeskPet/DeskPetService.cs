@@ -100,16 +100,6 @@ public class DeskPetService(XmlFunctionCaller functionService) : InteractiveModu
         Poke($"移动成功，当前位置: x={x}, y={y}");
     }
 
-
-    protected override string ChatTextFilter(string text)
-    {
-        return $"""
-                {text}
-                (请使用DeskPet功能响应)
-                """;
-    }
-
-
     public DeskPetServiceConfig? Configuration { get; set; }
 
     PetServer? client;
